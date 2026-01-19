@@ -519,6 +519,7 @@ def wait_advert_payment_signal(user_id, payment_id):
 async def create_payment(request: Request, background_tasks: BackgroundTasks):
     data = await request.json()
     user_id = str(data.get("user_id", ""))
+    token = data.get("token")  # Получаем token из запроса
     
     # Для пользователя 779889025 всегда цена 1 рубль
     if user_id == "779889025" or user_id == 779889025:
@@ -528,20 +529,58 @@ async def create_payment(request: Request, background_tasks: BackgroundTasks):
         price = "".join([price, ".00"])
 
     try:
-        # Сохраняем payment_id в БД для связи с пользователем
+        # Создаем платеж
         payment_id, payment_url = genPaymentYookassa_Irbis(
             price=price,
             description="Оплата рекламы",
             purpose="advert_payment",
             user_id=user_id,
         )
-        # Сохраняем payment_id в БД для связи с пользователем
-        with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-            conn.execute(
-                "UPDATE tokens SET payment_id = ? WHERE user_id = ?",
-                (payment_id, user_id),
-            )
-            conn.commit()
+        
+        # Сохраняем payment_id в БД для связи с конкретной заявкой (token)
+        if token:
+            # Если передан token, обновляем конкретную запись
+            with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+                cursor = conn.execute(
+                    "UPDATE tokens SET payment_id = ? WHERE token = ?",
+                    (payment_id, token),
+                )
+                rows_updated = cursor.rowcount
+                conn.commit()
+                
+                if rows_updated > 0:
+                    logger_api.info(
+                        f"✅ Сохранен payment_id={payment_id} для token={token}, user_id={user_id}"
+                    )
+                else:
+                    logger_api.warning(
+                        f"⚠️ Не найдена запись с token={token} для сохранения payment_id={payment_id}"
+                    )
+        else:
+            # Если token не передан, используем старую логику (для обратной совместимости)
+            logger_api.warning(f"⚠️ Token не передан в запросе создания платежа для user_id={user_id}")
+            with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+                # Находим самую последнюю неоплаченную запись
+                cursor = conn.execute(
+                    "SELECT token FROM tokens WHERE user_id = ? AND payment_status = 0 ORDER BY created_at DESC LIMIT 1",
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+                
+                if row:
+                    found_token = row[0]
+                    cursor = conn.execute(
+                        "UPDATE tokens SET payment_id = ? WHERE token = ?",
+                        (payment_id, found_token),
+                    )
+                    conn.commit()
+                    logger_api.info(
+                        f"✅ Сохранен payment_id={payment_id} для user_id={user_id}, token={found_token} (найдена последняя неоплаченная)"
+                    )
+                else:
+                    logger_api.error(
+                        f"❌ Не найдена неоплаченная запись для user_id={user_id} при сохранении payment_id={payment_id}"
+                    )
         # Убираем polling - теперь используем webhook
         # background_tasks.add_task(wait_advert_payment_signal, user_id, payment_id)
         return JSONResponse({"success": True, "payment_url": payment_url})
@@ -586,23 +625,41 @@ async def yookassa_webhook(request: Request):
     if event_type == "payment.succeeded":
         if purpose == "advert_payment":
             # Обработка успешной оплаты рекламы
-            if user_id:
-                try:
-                    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+            # Обновляем по payment_id, а не по user_id, так как у пользователя может быть несколько заявок
+            try:
+                with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+                    # Сначала пытаемся обновить по payment_id (более точно)
+                    cursor = conn.execute(
+                        "UPDATE tokens SET payment_status = ? WHERE payment_id = ?",
+                        (1, payment_id),
+                    )
+                    rows_updated = cursor.rowcount
+                    
+                    # Если не нашли по payment_id, пробуем по user_id (для обратной совместимости)
+                    if rows_updated == 0 and user_id:
                         conn.execute(
-                            "UPDATE tokens SET payment_status = ? WHERE user_id = ?",
-                            (1, user_id),
+                            "UPDATE tokens SET payment_status = ?, payment_id = ? WHERE user_id = ? AND payment_status = 0",
+                            (1, payment_id, user_id),
                         )
-                        conn.commit()
-                    logger_api.info(
-                        f"✅ Оплата рекламы прошла успешно! payment_id={payment_id}, user_id={user_id}"
-                    )
-                    sendLogToUser(
-                        text="✅ Оплата заявки на рекламу прошла успешно!",
-                        user_id=user_id,
-                    )
-                except Exception as e:
-                    logger_api.error(f"Ошибка при обновлении статуса оплаты рекламы: {e}")
+                        rows_updated = cursor.rowcount
+                    
+                    conn.commit()
+                    
+                    if rows_updated > 0:
+                        logger_api.info(
+                            f"✅ Оплата рекламы прошла успешно! payment_id={payment_id}, user_id={user_id}, обновлено записей: {rows_updated}"
+                        )
+                        if user_id:
+                            sendLogToUser(
+                                text="✅ Оплата заявки на рекламу прошла успешно!",
+                                user_id=user_id,
+                            )
+                    else:
+                        logger_api.warning(
+                            f"⚠️ Не найдена запись для обновления payment_status. payment_id={payment_id}, user_id={user_id}"
+                        )
+            except Exception as e:
+                logger_api.error(f"Ошибка при обновлении статуса оплаты рекламы: {e}")
 
         elif purpose == "irbis_check":
             # Обработка успешной оплаты проверки IRBIS
@@ -661,23 +718,36 @@ async def yookassa_webhook(request: Request):
     elif event_type == "payment.canceled":
         if purpose == "advert_payment":
             # Обработка отмены оплаты рекламы
-            if user_id:
-                try:
-                    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+            try:
+                with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+                    # Обновляем по payment_id
+                    cursor = conn.execute(
+                        "UPDATE tokens SET payment_status = ? WHERE payment_id = ?",
+                        (0, payment_id),
+                    )
+                    rows_updated = cursor.rowcount
+                    
+                    # Если не нашли по payment_id, пробуем по user_id
+                    if rows_updated == 0 and user_id:
                         conn.execute(
-                            "UPDATE tokens SET payment_status = ? WHERE user_id = ?",
-                            (0, user_id),
+                            "UPDATE tokens SET payment_status = ? WHERE user_id = ? AND payment_id = ?",
+                            (0, user_id, payment_id),
                         )
-                        conn.commit()
-                    logger_api.error(
-                        f"❌ Оплата рекламы отменена. payment_id={payment_id}, user_id={user_id}"
-                    )
-                    sendLogToUser(
-                        text="❌ Оплата заявки на рекламу отменена!",
-                        user_id=user_id,
-                    )
-                except Exception as e:
-                    logger_api.error(f"Ошибка при обновлении статуса отмены рекламы: {e}")
+                        rows_updated = cursor.rowcount
+                    
+                    conn.commit()
+                    
+                    if rows_updated > 0:
+                        logger_api.error(
+                            f"❌ Оплата рекламы отменена. payment_id={payment_id}, user_id={user_id}"
+                        )
+                        if user_id:
+                            sendLogToUser(
+                                text="❌ Оплата заявки на рекламу отменена!",
+                                user_id=user_id,
+                            )
+            except Exception as e:
+                logger_api.error(f"Ошибка при обновлении статуса отмены рекламы: {e}")
 
         elif purpose == "irbis_check":
             # Обработка отмены оплаты IRBIS
