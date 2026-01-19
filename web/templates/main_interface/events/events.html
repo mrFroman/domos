@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        {% for event in events %}
+            <div class="menu-row single">
+                <a href="{% url 'event_detail' event.id %}" class="menu-btn back full">{{ event.display_text }}</a>
+            </div>
+        {% empty %}
+            <span class="row-text">Нет предстоящих мероприятий</span>
+        {% endfor %}
+    </div>
+    
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+
+</div>
+
+
+{% endblock %}

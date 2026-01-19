@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="menu-label">Вы можете добавить нового клиента или продолжить работу с последним</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'start_passport_flow' %}?variant=new_client" class="menu-btn full" style="text-decoration:none;">Добавить нового клиента</a>
+    </div>
+
+    {% if message %}
+        <div class="menu-row single">
+            <div class="menu-header-text">{{ message }}</div>
+        </div>
+    {% endif %}
+
+    {% if show_upload_buttons %}
+        <div class="menu-row single">
+            <div class="menu-row-text">{{ upload_message }}</div>
+        </div>
+        
+        {% if not rieltor_exists %}
+            <div class="menu-row single">
+                <a href="{% url 'upload_passport_page' passport_type='rieltor' %}" class="menu-btn full" style="text-decoration:none;">
+                    📷 Загрузить паспорт риелтора
+                </a>
+            </div>
+        
+        {% elif client_exists == 1 %}
+            <div class="menu-row single">
+                <a href="{% url 'upload_passport_page' passport_type='client' %}" class="menu-btn full" style="text-decoration:none;">
+                    📷 Загрузить паспорт клиента
+                </a>
+            </div>
+        {% endif %}
+    {% endif %}
+
+    {% if rieltor_exists and client_exists != 1 %}
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="1" style="text-decoration:none;">Авансовое соглашение</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="2" style="text-decoration:none;">Договор аренды</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="3" style="text-decoration:none;">Ипотека</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="4" style="text-decoration:none;">Обмен</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="6" style="text-decoration:none;">Подбор</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="7" style="text-decoration:none;">Продажа</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="8" style="text-decoration:none;">Расторжение договора услуг</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="9" style="text-decoration:none;">Юридическое сопровождение</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-doc-type" data-doc="10" style="text-decoration:none;">Соглашение о расторжении аванса</a>
+        </div>
+    {% endif %}
+    
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ Назад</a>
+    </div>
+</div>
+
+<script>
+let selectedVariant = null;
+let selectedDocType = null;
+
+function selectVariant(variant) {
+    selectedVariant = variant; // 'continue' или 'new_client'
+    return false;
+}
+
+document.addEventListener('click', function(e) {
+    const docBtn = e.target.closest('.js-doc-type');
+    if (docBtn) {
+        e.preventDefault();
+        selectedDocType = docBtn.dataset.doc;
+        if (!selectedVariant || selectedVariant === 'continue') {
+            // Запускаем веб-поток редактирования, как в боте
+            const url = `{% url 'start_passport_flow' %}?variant=continue&doc_type=${selectedDocType}`;
+            window.location.href = url;
+        } else if (selectedVariant === 'new_client') {
+            window.location.href = `{% url 'start_passport_flow' %}?variant=new_client`;
+        }
+    }
+});
+</script>
+{% endblock %}

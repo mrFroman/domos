@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="row-text">{{ main_text }}</span>
+    </div>
+
+    <div class="menu-row single">
+        <button
+            type="button"
+            class="menu-btn full"
+            data-invite-link="{{ invite_link }}"
+            onclick="copyInviteLink(this)"
+        >
+            Скопировать ссылку-приглашение
+        </button>
+    </div>
+    
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+
+</div>
+
+<script>
+function copyInviteLink(buttonEl) {
+    const inviteLink = buttonEl.dataset.inviteLink;
+    if (!inviteLink) {
+        alert("Ссылка не найдена в контексте.");
+        return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard
+            .writeText(inviteLink)
+            .then(() => alert("Ссылка скопирована в буфер обмена."))
+            .catch(() => alert("Не удалось скопировать ссылку."));
+    } else {
+        const tempInput = document.createElement("input");
+        tempInput.value = inviteLink;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        const success = document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        alert(
+            success
+                ? "Ссылка скопирована в буфер обмена."
+                : "Не удалось скопировать ссылку."
+        );
+    }
+}
+</script>
+{% endblock %}

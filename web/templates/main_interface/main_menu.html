@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">Добро пожаловать, {{ username }}!</h1>
+    <p class="content-subtitle">{{ page_title }}</p>
+</div>
+
+<div class="content-body">
+    <div class="card">
+        <h3 class="card-title">Быстрый доступ</h3>
+        <div class="services-grid">
+            <a href="{% url 'assistant' %}" class="service-card" style="text-decoration: none;">
+                <div class="service-icon">🤖</div>
+                <div class="service-title">Помощник</div>
+                <div class="service-description">Ваш персональный AI-ассистент</div>
+                <span class="service-status available">Доступно</span>
+            </a>
+
+            <a href="{% url 'services' %}" class="service-card" style="text-decoration: none;">
+                <div class="service-icon">🧩</div>
+                <div class="service-title">Сервисы</div>
+                <div class="service-description">Все доступные инструменты</div>
+                <span class="service-status available">Доступно</span>
+            </a>
+
+            <a href="{% url 'subscriptions' %}" class="service-card" style="text-decoration: none;">
+                <div class="service-icon">💳</div>
+                <div class="service-title">Подписки и оплаты</div>
+                <div class="service-description">Управление подпиской</div>
+                <span class="service-status available">Доступно</span>
+            </a>
+
+            <a href="{% url 'my_requests' %}" class="service-card" style="text-decoration: none;">
+                <div class="service-icon">📂</div>
+                <div class="service-title">Мои заявки</div>
+                <div class="service-description">История ваших заявок</div>
+                <span class="service-status available">Доступно</span>
+            </a>
+
+            <a href="{% url 'events_menu' %}" class="service-card" style="text-decoration: none;">
+                <div class="service-icon">📅</div>
+                <div class="service-title">Мероприятия</div>
+                <div class="service-description">Предстоящие события</div>
+                <span class="service-status available">Доступно</span>
+            </a>
+
+            <a href="{% url 'helpful_menu' %}" class="service-card" style="text-decoration: none;">
+                <div class="service-icon">📚</div>
+                <div class="service-title">Полезное</div>
+                <div class="service-description">Полезные материалы и документы</div>
+                <span class="service-status available">Доступно</span>
+            </a>
+        </div>
+    </div>
+
+    {% if is_admin %}
+    <div class="card">
+        <h3 class="card-title">Панель администратора</h3>
+        <div style="margin-top: 16px;">
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-primary" style="text-decoration: none; display: inline-block;">
+                🛠 Перейти в админ-панель
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

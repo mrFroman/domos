@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        {% if description %}
+            <span class="row-text">{{ description }}</span>
+        {% endif %}
+        {% if error %}
+            <div class="error-block">
+                {{ error }}
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="menu-row single">
+        {% if form_url %}
+            <a href="{{ form_url }}" class="menu-btn primary full">
+                ✏️ Заполнить форму заявки на рекламу
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">
+            ⬅ В главное меню
+        </a>
+    </div>
+</div>
+{% endblock %}

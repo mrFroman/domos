@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div id="irbis-container">
+    {% if error %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">{{ error }}</span>
+        </div>
+        <div class="menu-row single">
+            <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+        </div>
+    </div>
+
+    {% elif step == 'payment' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">💡 Стоимость одной проверки — <b>200 руб</b>.</span>
+            <span class="menu-header-text">Оплатите по кнопке ниже.</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{{ payment_link }}" class="menu-btn full js-pay" target="_blank"
+               data-params='{"step":"check_payment","user_id":"{{ user_id }}","payment_id":"{{ payment_id }}","payment_link":"{{ payment_link }}"}'>
+               💳 Оплатить 200 руб
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+        </div>
+    </div>
+
+    {% elif step == 'check_payment' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">Проверяем оплату</span>
+        </div>
+
+        <div id="payment-status" data-payment-id="{{ payment_id }}" data-user-id="{{ user_id }}" class="menu-header-text" style="text-align: center; margin: 20px 0;">
+            ⏳ Ожидаем оплаты...
+        </div>
+
+        <div class="menu-row single" style="margin-top:10px;">
+            <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+        </div>
+    </div>
+
+    {% elif step == 'select_type' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">✅ Оплата прошла успешно! Доступ к IRBIS открыт.</span>
+            <span class="menu-header-text">Выберите, кого вы хотите проверить:</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-next-step"
+               data-params='{"step":"check_jur","user_id":"{{ user_id }}"}'>
+               🏢 Юр. лицо
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-next-step"
+               data-params='{"step":"check_fiz","user_id":"{{ user_id }}"}'>
+               👤 Физ. лицо
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn full js-next-step"
+               data-params='{"step":"check_realty","user_id":"{{ user_id }}"}'>
+               🏠 Недвижимость
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+        </div>
+    </div>
+
+    {% elif step == 'check_jur' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">Проверка юридического лица</span>
+            <span class="menu-header-text">Для продолжения заполните форму по кнопке ниже:</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{{ form_url }}" class="menu-btn full" target="_blank">
+               📝 Заполнить данные для проверки юр. лица
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn back full js-next-step"
+               data-params='{"step":"select_type","user_id":"{{ user_id }}"}'>
+               ⬅ Назад
+            </a>
+        </div>
+    </div>
+
+    {% elif step == 'check_fiz' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">Проверка физического лица</span>
+            <span class="menu-header-text">Для продолжения заполните форму по кнопке ниже:</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{{ form_url }}" class="menu-btn full" target="_blank">
+               📝 Заполнить данные для проверки физ. лица
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn back full js-next-step"
+               data-params='{"step":"select_type","user_id":"{{ user_id }}"}'>
+               ⬅ Назад
+            </a>
+        </div>
+    </div>
+
+    {% elif step == 'check_realty' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Проверка Irbis</span>
+            <span class="menu-label">Проверка недвижимости</span>
+            <span class="menu-header-text">Для продолжения заполните форму по кнопке ниже:</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{{ form_url }}" class="menu-btn full" target="_blank">
+               📝 Заполнить данные для проверки недвижимости
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" class="menu-btn back full js-next-step"
+               data-params='{"step":"select_type","user_id":"{{ user_id }}"}'>
+               ⬅ Назад
+            </a>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+<script>
+let paymentCheckInterval = null;
+
+// Загрузка шага через AJAX
+function loadStep(params) {
+    let url = "{% url 'irbis_menu' %}?" + new URLSearchParams(params).toString();
+    fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('irbis-container').innerHTML = html;
+
+            // если шаг check_payment — запускаем проверку
+            const statusBlock = document.getElementById('payment-status');
+            if (statusBlock && statusBlock.dataset.paymentId) {
+                startPaymentCheck(statusBlock.dataset.paymentId);
+            }
+        })
+        .catch(err => console.error("Ошибка загрузки шага:", err));
+}
+
+// Фоновая проверка оплаты
+function startPaymentCheck(paymentId) {
+    if (!paymentId) return;
+    if (paymentCheckInterval) clearInterval(paymentCheckInterval);
+
+    const statusBlock = document.getElementById('payment-status');
+    if (!statusBlock) return;
+
+    paymentCheckInterval = setInterval(() => {
+        fetch(`/domosclub/irbis/payment_check/${paymentId}`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 1) {
+                    clearInterval(paymentCheckInterval);
+                    statusBlock.innerHTML = '<span style="color:green;font-weight:bold;">✅ Оплата прошла успешно! Доступ к IRBIS открыт.</span>';
+                    // Переход на выбор типа проверки
+                    setTimeout(() => {
+                        loadStep({step: 'select_type', user_id: statusBlock.dataset.userId || '{{ user_id }}'});
+                    }, 2000);
+                } else if (data.status === 0) {
+                    statusBlock.innerHTML = '<span>⏳ Ожидаем оплаты...</span>';
+                } else {
+                    statusBlock.innerHTML = '<span style="color:red;">❌ Платёж не прошёл</span>';
+                }
+            })
+            .catch(err => console.error("Ошибка проверки оплаты:", err));
+    }, 10000);
+}
+
+// Обработка кликов
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('.js-next-step');
+    const payBtn = e.target.closest('.js-pay');
+
+    // обычные шаги
+    if (target) {
+        e.preventDefault();
+        let params = {};
+        if (target.dataset.params) {
+            try { params = JSON.parse(target.dataset.params); }
+            catch (err) { console.warn("Некорректный JSON", err); }
+        }
+
+        const container = target.closest('.main-menu');
+        if (container) {
+            container.querySelectorAll('input').forEach(input => {
+                if (input.name && input.value.trim()) params[input.name] = input.value.trim();
+            });
+        }
+        loadStep(params);
+    }
+
+    // кнопка "Оплатить"
+    if (payBtn) {
+        e.preventDefault();
+
+        let params = {};
+        if (payBtn.dataset.params) {
+            try { params = JSON.parse(payBtn.dataset.params); }
+            catch (err) { console.warn("Некорректный JSON", err); }
+        }
+
+        const paymentLink = payBtn.getAttribute("href");
+        const paymentId = params.payment_id;
+
+        // открыть платёжку в новой вкладке
+        if (paymentLink) window.open(paymentLink, "_blank");
+
+        // перевести на шаг check_payment
+        params.step = "check_payment";
+        loadStep(params);
+    }
+});
+</script>
+{% endblock %}
+

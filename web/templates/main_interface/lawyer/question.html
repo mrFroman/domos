@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Опишите ваш юридический вопрос</h2>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    <textarea name="question_text" rows="6" class="form-control"
+              placeholder="Опишите задачу..."></textarea>
+
+    <button class="btn btn-primary mt-3">Продолжить</button>
+</form>
+
+{% endblock %}

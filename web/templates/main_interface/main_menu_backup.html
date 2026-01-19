@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="main-menu">
+        <div class ="menu-header">
+            <span class="menu-title">Привет, {{ username }}!</span>
+            <span class="menu-label">{{ page_title }}</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'rules_menu' %}" class="menu-btn full" style="text-decoration:none;">🎯 Наши правила</a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'create_contract_menu' %}" class="menu-btn full" style="text-decoration:none;">📝 Сформировать договор</a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'payment_menu' %}" class="menu-btn full" style="text-decoration:none;">💳 Оплата</a>
+        </div>
+
+        <div class="menu-row double">
+            <a href="{% url 'helpful_menu' %}" 
+               class="menu-btn half" 
+               style="text-decoration:none;">📗 Полезное
+            </a>
+            <a href="{% url 'meeting_booking' %}" 
+               class="menu-btn half" 
+               style="text-decoration:none;">💬 Переговорка
+            </a>
+        </div>
+
+    </div>
+{% endblock %}
+
+

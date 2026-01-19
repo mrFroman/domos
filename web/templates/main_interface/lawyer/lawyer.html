@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="row-text">{{ description }}</span>
+        {% if error %}
+            <span class="row-text" style="color: #ff6b6b;">{{ error }}</span>
+        {% endif %}
+    </div>
+
+    {% if step == "awaiting_question" %}
+        <form method="post" enctype="multipart/form-data" class="menu-row single" style="flex-direction: column; align-items: flex-start;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="awaiting_question">
+            
+            <div style="width: 100%; margin-bottom: 16px;">
+                <label class="input-label">Введите ваш вопрос текстом:</label>
+                <textarea name="text_question" class="menu-input" rows="5" placeholder="Опишите какой документ вам нужен, опишите все детали, стороны, предмет, суммы и прочее..." style="min-height: 120px; resize: vertical;"></textarea>
+            </div>
+            
+            <div style="width: 100%; margin-bottom: 16px;">
+                <label class="input-label">Или загрузите голосовое сообщение:</label>
+                <input type="file" name="voice_file" id="voiceFileInput" accept="audio/*,video/*,.ogg,.mp3,.wav,.m4a" class="menu-input" style="padding: 8px;">
+            </div>
+            
+            <button type="submit" class="menu-btn full" style="width: 100%;">
+                Отправить
+            </button>
+        </form>
+    {% endif %}
+
+    {% if step == "adding_documents" %}
+        <div class="menu-row single" style="flex-direction: column; align-items: flex-start;">
+            <span class="menu-header-text" style="margin-bottom: 16px;">
+                Текст вашего запроса:
+            </span>
+            <div style="background: #2a2a3cff; padding: 12px; border-radius: 8px; margin-bottom: 16px; width: 100%;">
+                <span class="row-text">{{ processed_text }}</span>
+            </div>
+        </div>
+
+        <div class="menu-row single" style="flex-direction: column; align-items: flex-start;">
+            <label class="input-label">Загрузите файлы (до 5 штук):</label>
+            <input type="file" id="fileInput" multiple style="margin-bottom: 8px;">
+            <button type="button" id="uploadBtn" class="menu-btn back full">Загрузить файлы</button>
+        </div>
+
+        <div class="menu-row single" style="flex-direction: column; align-items: flex-start;">
+            <span class="menu-header-text">Загруженные файлы:</span>
+            <ul id="uploadedFiles" style="list-style: none; padding: 0; margin: 8px 0;">
+                {% for f in files %}
+                    <li style="padding: 4px 0; color: #fff;">📄 {{ f }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <form method="post" class="menu-row single">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="adding_documents">
+            <button type="submit" name="next_to_urgency" value="1" class="menu-btn back full">
+                Далее
+            </button>
+        </form>
+
+        <script>
+            document.getElementById("uploadBtn").addEventListener("click", async () => {
+                const input = document.getElementById("fileInput");
+                const files = input.files;
+                if (!files.length) return alert("Выберите файлы");
+
+                const formData = new FormData();
+                for (const f of files) formData.append("files", f);
+
+                const response = await fetch("{% url 'upload_lawyer_file' %}", {
+                    method: "POST",
+                    headers: {"X-CSRFToken": "{{ csrf_token }}"},
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (data.error) return alert(data.error);
+
+                const ul = document.getElementById("uploadedFiles");
+                for (const f of data.uploaded) {
+                    const li = document.createElement("li");
+                    li.style.cssText = "padding: 4px 0; color: #fff;";
+                    li.textContent = `📄 ${f}`;
+                    ul.appendChild(li);
+                }
+
+                if (data.count >= 5) {
+                    alert("Максимальное количество файлов достигнуто");
+                    document.getElementById("uploadBtn").disabled = true;
+                    input.disabled = true;
+                }
+            });
+        </script>
+    {% endif %}
+
+    {% if step == "choosing_urgency" %}
+        <form method="post" class="menu-row single" style="flex-direction: column; align-items: flex-start;">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="choosing_urgency">
+            
+            <div class="menu-row single">
+                <button type="submit" name="urgency" value="urgent" class="menu-btn full" style="background: #ff4444;">
+                    🔴 СРОЧНО (1 день)
+                </button>
+            </div>
+            
+            <div class="menu-row single">
+                <button type="submit" name="urgency" value="normal" class="menu-btn full" style="background: #ffaa00;">
+                    🟡 Обычный (2 дня)
+                </button>
+            </div>
+            
+            <div class="menu-row single">
+                <button type="submit" name="urgency" value="complex" class="menu-btn full" style="background: #666666;">
+                    ⚫ Сложный (3 дня)
+                </button>
+            </div>
+        </form>
+    {% endif %}
+
+    {% if step == "finished" %}
+        <div class="menu-row single">
+            <span class="menu-header-text" style="text-align: center; color: #4caf50;">
+                {{ description }}
+            </span>
+        </div>
+    {% endif %}
+
+    {% if step == "error" %}
+        <div class="menu-row single">
+            <span class="menu-header-text" style="text-align: center; color: #ff6b6b;">
+                {{ description }}
+            </span>
+        </div>
+    {% endif %}
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+</div>
+{% endblock %}

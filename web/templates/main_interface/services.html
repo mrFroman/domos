@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">{{ page_title }}</h1>
+    <p class="content-subtitle">{{ page_subtitle }}</p>
+</div>
+
+<div class="content-body">
+    <div class="services-grid">
+        {% for service in services %}
+        <a href="{% url service.url %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">{{ service.icon }}</div>
+            <div class="service-title">{{ service.name }}</div>
+            <div class="service-description">{{ service.description }}</div>
+            {% if service.requires_subscription %}
+                {% if service.available %}
+                    <span class="service-status available">✓ Доступно</span>
+                {% else %}
+                    <span class="service-status subscription">🔒 По подписке</span>
+                {% endif %}
+            {% else %}
+                <span class="service-status available">✓ Доступно</span>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

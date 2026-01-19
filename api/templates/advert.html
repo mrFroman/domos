@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Заявка на размещение рекламы</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 720px;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: left;
+            color: #141417;
+            margin: 0 0 24px 0;
+        }
+
+        p {
+            text-align: left;
+            color: #141417;
+            margin: 0 0 24px 0;
+        }
+
+        label {
+            display: inline-block;
+            margin-top: 12px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus { outline: none; border-color: #4CAF50; }
+
+        #total-container {
+            margin-top: 25px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #222;
+            text-align: right;
+        }
+
+        button {
+            margin-top: 20px;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 17px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover { background-color: #45a049; }
+        button:disabled {
+            background-color: #999 !important;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Заявка на размещение рекламы</h1>
+        <p>Укажите количество размещений на каждом портале. Если размещения не нужны — укажите "0".</p>
+
+        <form id="advertDataForm">
+            <label>ФИО</label>
+            <input type="text" name="full_name" required>
+
+            <!-- Динамически генерируемые поля будут добавлены здесь -->
+            <div id="positions-container"></div>
+
+            <div id="total-container">Итого: 0 ₽</div>
+
+            <input type="hidden" id="user_id" value="{{ user_id }}">
+            <input type="hidden" id="token" value="{{ token }}">
+
+            <button type="submit">Оплатить заявку на рекламу</button>
+        </form>
+    </div>
+
+    <script>
+        // Данные позиций из сервера
+        const serverPositions = {{ positions | tojson | safe }};
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadPositions();
+        });
+
+        function loadPositions() {
+            const container = document.getElementById('positions-container');
+            container.innerHTML = '';
+
+            if (serverPositions && serverPositions.length > 0) {
+                serverPositions.forEach(position => {
+                    addPositionField(position.name, position.key, position.price);
+                });
+                return;
+            }
+
+            fetch('/api/advert_positions')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.positions) {
+                        data.positions.forEach(position => {
+                            addPositionField(position.name, position.key, position.price);
+                        });
+                    } else {
+                        console.error('Ошибка загрузки позиций:', data.error);
+                        loadDefaultPositions();
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при загрузке позиций:', error);
+                    loadDefaultPositions();
+                });
+        }
+
+        function addPositionField(name, key, price) {
+            const container = document.getElementById('positions-container');
+
+            const label = document.createElement('label');
+            label.textContent = name;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.name = key;
+            input.value = '0';
+            input.min = '0';
+
+            input.addEventListener('input', calculateTotal);
+
+            container.appendChild(label);
+            container.appendChild(input);
+        }
+
+        function loadDefaultPositions() {
+            const defaultPositions = [
+                { name: 'ЦИАН (Екатеринбург и пригород)', key: 'CIAN_city', price: 364 },
+                { name: 'ЦИАН (за пределом Свердловской области)', key: 'CIAN_country', price: 364 },
+                { name: 'АВИТО квартиры', key: 'AVITO_apartments', price: 226 },
+                { name: 'АВИТО загородка', key: 'AVITO_country_house', price: 1232 },
+                { name: 'АВИТО коммерция', key: 'AVITO_commercial', price: 385 },
+                { name: 'АВИТО паркинг', key: 'AVITO_parkings', price: 270 },
+                { name: 'АВИТО аренда квартир', key: 'AVITO_rent_apartments', price: 226 },
+                { name: 'ЯндексНедвижимость', key: 'yandex_realty', price: 66 },
+                { name: 'УПН', key: 'UPN', price: 94 },
+                { name: 'ДомКлик', key: 'DomClick', price: 110 },
+                { name: 'Юла', key: 'ULA', price: 66 }
+            ];
+
+            defaultPositions.forEach(position => {
+                addPositionField(position.name, position.key, position.price);
+            });
+        }
+
+        function getPrices() {
+            const prices = {};
+            if (serverPositions && serverPositions.length > 0) {
+                serverPositions.forEach(position => {
+                    prices[position.key] = position.price;
+                });
+                return prices;
+            }
+
+            return {
+                CIAN_city: 364,
+                CIAN_country: 364,
+                AVITO_apartments: 204,
+                AVITO_country_house: 1110,
+                AVITO_commercial: 343,
+                AVITO_parkings: 231,
+                AVITO_rent_apartments: 196,
+                yandex_realty: 66,
+                UPN: 94,
+                DomClick: 165,
+                ULA: 66
+            };
+        }
+
+        const form = document.getElementById('advertDataForm');
+        const totalContainer = document.getElementById('total-container');
+
+        function calculateTotal() {
+            const prices = getPrices();
+            let total = 0;
+
+            for (let key in prices) {
+                const input = form.querySelector(`[name="${key}"]`);
+                if (input) {
+                    const count = parseFloat(input.value) || 0;
+                    total += count * prices[key];
+                }
+            }
+            totalContainer.textContent = `Итого: ${total} ₽`;
+        }
+
+        setTimeout(calculateTotal, 30);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = button.textContent;
+
+            // Состояние loading
+            button.disabled = true;
+            button.textContent = "⏳ Обработка...";
+            button.style.backgroundColor = "#999";
+
+        // 🔹 1️⃣ Сбор данных формы
+        let formObj = {};
+        try {
+            const formData = new FormData(form);
+            formData.forEach((v, k) => formObj[k] = v);
+
+            const total_price = totalContainer.textContent.replace(/\D+/g, '');
+            formObj.total_price = total_price;
+        } catch (err) {
+            alert('❌ Ошибка при сборе данных формы: ' + err.message);
+            console.error(err);
+            button.disabled = false;
+            button.textContent = originalText;
+            button.style.backgroundColor = "#4CAF50";
+            return;
+        }
+
+        // 🔹 2️⃣ Сохраняем заявку с 3 попытками
+        let saveResult;
+        const maxAttempts = 3;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const payload = {
+                    user_id: document.getElementById('user_id').value,
+                    token: document.getElementById('token').value,
+                    data_json: JSON.stringify(formObj),
+                    signal: 1
+                };
+
+                const saveRes = await fetch('/api/save_advert_data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!saveRes.ok)
+                    throw new Error(`HTTP ${saveRes.status} при сохранении заявки`);
+
+                saveResult = await saveRes.json();
+
+                if (!saveResult.success)
+                    throw new Error(saveResult.error || "Неизвестная ошибка при сохранении данных");
+
+                // Если всё прошло успешно — выходим из цикла
+                break;
+
+            } catch (err) {
+                console.warn(`Попытка ${attempt} не удалась:`, err.message);
+
+                if (attempt === maxAttempts) {
+                    // После последней попытки показываем ошибку пользователю
+                    alert('❌ Ошибка при сохранении заявки после 3 попыток: ' + err.message);
+                    console.error(err);
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    button.style.backgroundColor = "#4CAF50";
+                    return;
+                }
+
+                // Можно добавить паузу перед повторной попыткой, например:
+                await new Promise(res => setTimeout(res, 500)); // 0.5 сек
+            }
+        }
+
+
+        // 🔹 3️⃣ Создаём платёж с 3 попытками
+        const maxPayAttempts = 3;
+        for (let attempt = 1; attempt <= maxPayAttempts; attempt++) {
+            try {
+                const payRes = await fetch('/api/create_advert_payment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        price: formObj.total_price,
+                        fullname: formObj.full_name,
+                        description: "Оплата заявки на рекламу",
+                        user_id: document.getElementById('user_id').value
+                    })
+                });
+
+                if (!payRes.ok)
+                    throw new Error(`HTTP ${payRes.status} при создании платежа`);
+
+                const payResult = await payRes.json();
+
+                if (payResult.success && payResult.payment_url) {
+                    // Успешно — редиректим пользователя
+                    window.location.href = payResult.payment_url;
+                    break; // выходим из цикла
+                } else {
+                    throw new Error(payResult.error || "Не удалось создать платёж");
+                }
+
+            } catch (err) {
+                console.warn(`Попытка ${attempt} создания платежа не удалась:`, err.message);
+
+                if (attempt === maxPayAttempts) {
+                    // После последней попытки показываем ошибку
+                    alert('❌ Ошибка при создании платежа после 3 попыток: ' + err.message);
+                    console.error(err);
+                    button.disabled = false;
+                    button.textContent = originalText;
+                    button.style.backgroundColor = "#4CAF50";
+                    return;
+                }
+
+                // Можно добавить небольшую паузу перед следующей попыткой
+                await new Promise(res => setTimeout(res, 500)); // 0.5 сек
+            }
+        }
+
+
+        // 🔹 Если всё успешно
+        button.disabled = false;
+        button.textContent = originalText;
+        button.style.backgroundColor = "#4CAF50";
+
+        });
+    </script>
+</body>
+</html>

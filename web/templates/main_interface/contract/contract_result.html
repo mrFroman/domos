@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+    </div>
+
+    <div class="menu-row single">
+        <div class="menu-row-text">{{ message|safe }}</div>
+    </div>
+
+    {% if download_url %}
+        <div class="menu-row single">
+            <a href="{{ download_url }}" class="menu-btn full" style="text-decoration:none;">📄 Скачать договор</a>
+        </div>
+    {% endif %}
+    
+    <div class="menu-row single">
+        <a href="{% url 'create_contract_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ Создать еще один договор</a>
+    </div>
+    
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ В главное меню</a>
+    </div>
+</div>
+{% endblock %}

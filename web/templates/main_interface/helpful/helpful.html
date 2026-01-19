@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+    <div id="helpful-container">
+        {% include "main_interface/helpful/helpful_partial.html" %}
+    </div>
+
+    <script>
+        function loadStep(params) {
+            let url = "{% url 'helpful_menu' %}?" + new URLSearchParams(params).toString();
+            fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('helpful-container').innerHTML = html;
+                });
+        }
+
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('.js-next-step'); // ловим и клики по вложенным элементам
+            if (target) {
+                e.preventDefault();
+                let params = JSON.parse(target.dataset.params);
+                loadStep(params);
+            }
+        });
+    </script>
+
+{% endblock %}

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Редактирование паспортных данных</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 720px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            margin-top: 30px;
+            color: #333;
+            font-size: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        label {
+            display: inline-flex;      /* в одну строку */
+            align-items: center; 
+            margin-top: 15px;
+            font-weight: bold;
+            color: #444;
+            gap: 6px;                   /* расстояние между чекбоксом и текстом */
+            cursor: pointer;            /* курсор при наведении */
+            white-space: nowrap;  
+        }
+
+        label input[type="checkbox"] {
+            display: block;
+            margin: 0; /* убираем отступы браузера */
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        button {
+            margin-top: 30px;
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 17px;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        @media (max-width: 600px) {
+            label {
+                font-size: 15px;
+            }
+
+            input {
+                font-size: 15px;
+            }
+
+            h1 {
+                font-size: 22px;
+            }
+
+            h2 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Редактирование данных</h1>
+
+        <form id="passportForm">
+            <div>
+                <div>
+                    <h2>📄 Риелтор</h2>
+                
+                    <div>
+                        <label for="rieltor_business_type">От какого лица вы будете подписывать договор</label>
+                        <select id="rieltor_business_type" name="rieltor_business_type" required>
+                            <option value="" disabled selected>— не выбрано —</option>
+                            {% if doc_type == "1" %}
+                                <option value="Физическое лицо">Физическое лицо</option>
+                                <option value="ИП">ИП</option>
+                            {% else %}
+                                <option value="Физическое лицо">Физическое лицо</option>
+                                <option value="ИП">ИП</option>
+                                <option value="Самозанятый">Самозанятый</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                    
+                    <!-- Физическое лицо -->
+                    <div class="individual-fields" style="display:none;">
+                        <p style="color:red; font-weight:bold;">
+                            Внимание! Предпринимательская деятельность не может осуществляться физическим лицом! 
+                            Данный бланк договора рекомендуем использовать только для редактирования. 
+                            Чтобы избежать нарушений и штрафов от государственных органов рекомендуем работать в качестве индивидуального предпринимателя либо самозанятого. 
+                            Пройти регистрацию можно у администрации.
+                        </p>
+                        <label>
+                            <input type="checkbox" id="consent_checkbox">
+                            Подтверждаю, что ознакомлен с предупреждением
+                        </label>
+                
+                        <!-- Физическое лицо -->
+                        <div id="individual-data" style="display:none; margin-top:10px;">
+                            <label>Фамилия</label>
+                            <input type="text" name="rieltor_last_name" value="{{rieltor_last_name}}">
+                            <label>Имя</label>
+                            <input type="text" name="rieltor_first_name" value="{{rieltor_first_name}}">
+                            <label>Отчество</label>
+                            <input type="text" name="rieltor_middle_name" value="{{rieltor_middle_name}}">
+                            <label>Дата рождения</label>
+                            <input type="text" name="rieltor_birth_date" value="{{rieltor_birth_date}}">
+                            <label>Серия паспорта</label>
+                            <input type="text" name="rieltor_passport_series" value="{{rieltor_passport_series}}">
+                            <label>Номер паспорта</label>
+                            <input type="text" name="rieltor_passport_number" value="{{rieltor_passport_number}}">
+                            <label>Кем выдан</label>
+                            <input type="text" name="rieltor_issued_by" value="{{rieltor_issued_by}}">
+                            <label>Дата выдачи</label>
+                            <input type="text" name="rieltor_issue_date" value="{{rieltor_issue_date}}">
+                            <label>Адрес регистрации</label>
+                            <input type="text" name="rieltor_registration_address" value="{{rieltor_registration_address}}">
+                            <label>Телефон</label>
+                            <input type="tel" name="rieltor_phone" pattern="\+?[0-9\s\-]{7,15}" placeholder="+7 999 123-45-67">
+                            <label>Электронная почта</label>
+                            <input type="email" name="rieltor_email" value="{{rieltor_email}}">
+                        </div>
+                    </div>
+                
+                    <!-- ИП -->
+                    <div class="individual-entrepreneur-fields" style="display:none; margin-top:10px;">
+                        <label>Фамилия</label>
+                        <input type="text" name="rieltor_last_name" value="{{rieltor_last_name}}">
+                        <label>Имя</label>
+                        <input type="text" name="rieltor_first_name" value="{{rieltor_first_name}}">
+                        <label>Отчество</label>
+                        <input type="text" name="rieltor_middle_name" value="{{rieltor_middle_name}}">
+                        <label>Дата рождения</label>
+                        <input type="text" name="rieltor_birth_date" value="{{rieltor_birth_date}}">
+                        <label>Серия паспорта</label>
+                        <input type="text" name="rieltor_passport_series" value="{{rieltor_passport_series}}">
+                        <label>Номер паспорта</label>
+                        <input type="text" name="rieltor_passport_number" value="{{rieltor_passport_number}}">
+                        <label>Кем выдан</label>
+                        <input type="text" name="rieltor_issued_by" value="{{rieltor_issued_by}}">
+                        <label>Дата выдачи</label>
+                        <input type="text" name="rieltor_issue_date" value="{{rieltor_issue_date}}">
+                        <label>ИНН</label>
+                        <input type="text" name="rieltor_INN" value="{{rieltor_INN}}">
+                        <label>ОГРНИП</label>
+                        <input type="text" name="rieltor_OGRNIP" value="{{rieltor_OGRNIP}}">
+                        <label>Юридический адрес</label>
+                        <input type="text" name="rieltor_registration_address" value="{{rieltor_registration_address}}">
+                        <label>Название банка</label>
+                        <input type="text" name="rieltor_bank_name" value="{{rieltor_bank_name}}">
+                        <label>Р/С</label>
+                        <input type="text" name="rieltor_main_order" value="{{rieltor_main_order}}">
+                        <label>К/С</label>
+                        <input type="text" name="rieltor_additional_order" value="{{rieltor_additional_order}}">
+                        <label>БИК</label>
+                        <input type="text" name="rieltor_BIK" value="{{rieltor_BIK}}">
+                        <label>Телефон</label>
+                        <input type="tel" name="rieltor_phone" pattern="\+?[0-9\s\-]{7,15}" placeholder="+7 999 123-45-67">
+                        <label>Электронная почта</label>
+                        <input type="email" name="rieltor_email" value="{{rieltor_email}}">
+                    </div>
+                
+                    <!-- Самозанятый -->
+                    <div class="self-employed-fields" style="display:none; margin-top:10px;">
+                        <label>Фамилия</label>
+                        <input type="text" name="rieltor_last_name" value="{{rieltor_last_name}}">
+                        <label>Имя</label>
+                        <input type="text" name="rieltor_first_name" value="{{rieltor_first_name}}">
+                        <label>Отчество</label>
+                        <input type="text" name="rieltor_middle_name" value="{{rieltor_middle_name}}">
+                        <label>Дата рождения</label>
+                        <input type="text" name="rieltor_birth_date" value="{{rieltor_birth_date}}">
+                        <label>Серия паспорта</label>
+                        <input type="text" name="rieltor_passport_series" value="{{rieltor_passport_series}}">
+                        <label>Номер паспорта</label>
+                        <input type="text" name="rieltor_passport_number" value="{{rieltor_passport_number}}">
+                        <label>Кем выдан</label>
+                        <input type="text" name="rieltor_issued_by" value="{{rieltor_issued_by}}">
+                        <label>Дата выдачи</label>
+                        <input type="text" name="rieltor_issue_date" value="{{rieltor_issue_date}}">
+                        <label>Адрес регистрации</label>
+                        <input type="text" name="rieltor_registration_address" value="{{rieltor_registration_address}}">
+                        <label>ИНН</label>
+                        <input type="text" name="rieltor_INN" value="{{rieltor_INN}}">
+                        <label>Р/С</label>
+                        <input type="text" name="rieltor_main_order" value="{{rieltor_main_order}}">
+                        <label>К/С</label>
+                        <input type="text" name="rieltor_additional_order" value="{{rieltor_additional_order}}">
+                        <label>БИК</label>
+                        <input type="text" name="rieltor_BIK" value="{{rieltor_BIK}}">
+                        <label>Телефон</label>
+                        <input type="tel" name="rieltor_phone" pattern="\+?[0-9\s\-]{7,15}" placeholder="+7 999 123-45-67">
+                        <label>Электронная почта</label>
+                        <input type="email" name="rieltor_email" value="{{rieltor_email}}">
+                    </div>
+                </div>
+                
+                <script>
+                document.addEventListener('DOMContentLoaded', () => {
+                    const consentCheckbox = document.getElementById("consent_checkbox");
+                    const individualData = document.getElementById("individual-data");
+                
+                    consentCheckbox.addEventListener("change", function() {
+                        individualData.style.display = this.checked ? "block" : "none";
+                    });
+                
+                    function toggleFields() {
+                        const type = document.getElementById('rieltor_business_type').value;
+                        const indFields = document.querySelector('.individual-fields');
+                        const ipFields = document.querySelector('.individual-entrepreneur-fields');
+                        const szFields = document.querySelector('.self-employed-fields');
+                
+                        indFields.style.display = (type === 'Физическое лицо') ? 'block' : 'none';
+                        ipFields.style.display = (type === 'ИП') ? 'block' : 'none';
+                        szFields.style.display = (type === 'Самозанятый') ? 'block' : 'none';
+                
+                        // сбрасываем чекбокс и скрываем поля для физ. лица при смене типа
+                        if (type !== 'Физическое лицо') {
+                            consentCheckbox.checked = false;
+                            individualData.style.display = "none";
+                        }
+                    }
+                
+                    document.getElementById('rieltor_business_type').addEventListener('change', toggleFields);
+                    toggleFields(); // инициализация при загрузке
+                });
+                </script>
+                
+            </div>
+
+            <div id="client-block">
+                <h2>📄 Клиент</h2>
+                <label>Фамилия</label>
+                <input type="text" name="client_last_name" value="{{client_last_name}}">
+                <label>Имя</label>
+                <input type="text" name="client_first_name" value="{{client_first_name}}">
+                <label>Отчество</label>
+                <input type="text" name="client_middle_name" value="{{client_middle_name}}">
+                <label>Дата рождения</label>
+                <input type="text" name="client_birth_date" value="{{client_birth_date}}">
+                <label>Серия паспорта</label>
+                <input type="text" name="client_passport_series" value="{{client_passport_series}}">
+                <label>Номер паспорта</label>
+                <input type="text" name="client_passport_number" value="{{client_passport_number}}">
+                <label>Кем выдан</label>
+                <input type="text" name="client_issued_by" value="{{client_issued_by}}">
+                <label>Дата выдачи</label>
+                <input type="text" name="client_issue_date" value="{{client_issue_date}}">
+                <label>Адрес регистрации</label>
+                <input type="text" name="client_registration_address" value="{{client_registration_address}}">
+            </div>
+
+            <!-- Дополнительные поля в зависимости от doc_type -->
+            {% set templates_map = {
+                "2": "docs/lease_agreement.html",
+                "3": "docs/mortgage_agreement.html",
+                "4": "docs/exchange_agreement.html",
+                "6": "docs/selection_agreement.html",
+                "7": "docs/sale_agreement.html"
+            } %}
+
+            
+            {% set tpl = templates_map.get(doc_type) %}
+            {% if tpl %}
+                {% include tpl %}
+            {% else %}
+                <p>Нет дополнительных полей для данного документа {{doc_type}}</p>
+            {% endif %}
+
+            <input type="hidden" name="user_id" value="{{user_id}}">
+            <input type="hidden" name="token" value="{{token}}">
+
+            <button type="submit">💾 Сохранить изменения</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('passportForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = { Signal: 1 };
+        
+            // 1. Добавляем данные "Риелтора"
+            const type = document.getElementById('rieltor_business_type').value;
+            payload["rieltor_business_type"] = type;
+
+            let activeBlock;
+            if (type === 'Физическое лицо') {
+                activeBlock = document.querySelector('.individual-fields');
+            } else if (type === 'ИП') {
+                activeBlock = document.querySelector('.individual-entrepreneur-fields');
+            } else if (type === 'Самозанятый') {
+                activeBlock = document.querySelector('.self-employed-fields');
+            }
+        
+            if (activeBlock) {
+                const rFields = activeBlock.querySelectorAll('input, select, textarea');
+                rFields.forEach(field => {
+                    if (field.name && !field.disabled) {
+                        payload[field.name] = field.value;
+                    }
+                });
+            }
+        
+            // 2. Добавляем данные "Клиента" (всегда видимые)
+            const clientFields = document.querySelectorAll('#client-block input, #client-block select, #client-block textarea');
+            clientFields.forEach(field => {
+                if (field.name) payload[field.name] = field.value;
+            });
+        
+            // 3. Добавляем скрытые поля формы (user_id, token)
+            const hiddenFields = form.querySelectorAll('input[type="hidden"]');
+            hiddenFields.forEach(field => {
+                if (field.name) payload[field.name] = field.value;
+            });
+        
+            try {
+                const res = await fetch('/api/save_passport_data1', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+        
+                const result = await res.json();
+                if (result.success) {
+                    alert('✅ Данные сохранены! Сейчас бот отправит обновлённое сообщение');
+                } else {
+                    alert('❌ Ошибка при сохранении данных: ' + result.error);
+                }
+            } catch (err) {
+                alert('❌ Сетевая ошибка: ' + err.message);
+            }
+        });
+        </script>
+        
+
+</body>
+</html>

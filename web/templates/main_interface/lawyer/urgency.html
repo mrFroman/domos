@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Выберите срочность запроса</h2>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+
+    <button name="urgency" value="urgent" class="btn btn-danger w-100 mb-2">
+        СРОЧНО (1 день)
+    </button>
+
+    <button name="urgency" value="normal" class="btn btn-warning w-100 mb-2">
+        Обычный (2 дня)
+    </button>
+
+    <button name="urgency" value="complex" class="btn btn-dark w-100">
+        Сложный (3 дня)
+    </button>
+</form>
+
+{% endblock %}

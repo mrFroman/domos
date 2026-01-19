@@ -1,0 +1,513 @@
+{% load static %}
+
+{% if step == 'main' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">{{ page_title }}</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"useful_links"}'>
+            Полезные ссылки
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"contacts"}'>
+            Контакты
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://telegra.ph/Istoriya-kompanii-12-08" 
+            class="menu-btn full" 
+            target="_blank">
+            История компании <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"forms"}'>
+            Бланки документов
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="#" 
+               class="menu-btn full"
+               onclick="downloadFiles('prepare'); return false;">
+               Подготовка квартиры к съёмкам
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="#" 
+               class="menu-btn full"
+               onclick="downloadFiles('memo'); return false;">
+               Памятка по заполнению ТК и 2 НДФЛ
+            </a>
+        </div>
+        <script>
+            function downloadFiles(type) {
+                // Массив ссылок для каждой кнопки
+                const files = {
+                    'prepare': [
+                        '/static/blanks/Подготовка_квартиры_к_съёмке_ДОМОС.pdf',
+                    ],
+                    'memo': [
+                        '/static/blanks/Памятка справка и ТК (1).pdf',
+                    ]
+                };
+            
+                // Берем нужные файлы
+                const selectedFiles = files[type] || [];
+            
+                // Скачиваем каждый файл
+                selectedFiles.forEach(path => {
+                    const link = document.createElement('a');
+                    link.href = path;
+                    link.download = path.split('/').pop();
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                });
+            }
+            </script>
+
+        <div class="menu-row single">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"team"}'>
+            Команда специалистов ДОМОС
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://vslebedev.wixsite.com/samozanyatie" 
+            class="menu-btn full" 
+            target="_blank">
+            Вопрос/ответ по самозанятости <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://telegra.ph/Privedi-druga-12-28" 
+            class="menu-btn full" 
+            target="_blank">
+            Бонус за друга <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://telegra.ph/Otkrytki-12-28" 
+            class="menu-btn full" 
+            target="_blank">
+            Открытки поздравления <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'useful_links' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">{{ page_title }}</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://docs.google.com/spreadsheets/d/13TIqojy2J-6BhPhLUy78gswZHH8USQl4dsK0otKtKMM/edit?usp=sharing" 
+            class="menu-btn full" 
+            target="_blank">
+            Таблица банки <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://docs.google.com/spreadsheets/d/1QilOIpu6eHajeN-wZy0a_JyxkZNzVz2h2D5SJHRY6qw/edit?usp=sharing" 
+            class="menu-btn full" 
+            target="_blank">
+            Таблица новостройки <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://docs.google.com/spreadsheets/d/1JBUPAAUilnkoSYkEd5z0tvZulYOVrnCGXgvNnHvyITw/edit" 
+            class="menu-btn full" 
+            target="_blank">
+            Ипотечный калькулятор <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://drive.google.com/drive/folders/1vlwuh_dw_YrxLKoKYzJ2Cv_TWGV3tcND?usp=share_link" 
+            class="menu-btn full" 
+            target="_blank">
+            Презентации новостроек <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://yandex.ru/maps/org/domos/5210005134/reviews/?ll=60.598324%2C56.831634&z=13" 
+            class="menu-btn full" 
+            target="_blank">
+            Отзывы яндекс <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://g.co/kgs/rRmufM" 
+            class="menu-btn full" 
+            target="_blank">
+            Отзывы Google <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://ekaterinburg.flamp.ru/domos" 
+            class="menu-btn full" 
+            target="_blank">
+            Отзывы фламп <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://vk.com/domostop" 
+            class="menu-btn full" 
+            target="_blank">
+            Группа VK <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://instagram.com/domos.top" 
+            class="menu-btn full" 
+            target="_blank">
+            Наш Instagram <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="https://domos.club/" 
+            class="menu-btn full" 
+            target="_blank">
+            Наш сайт <span>↗</span>
+            </a>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"main"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'contacts' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">{{ page_title }}</span>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_1"}'>
+            Куратор Сбербанка
+            </a>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_2"}'>
+            Куратор Нмаркет
+            </a>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_3"}'>
+            Офис-менеджер
+            </a>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_4"}'>
+            Менеджер ХОРОШЕГО настроения
+            </a>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_5"}'>
+            Руководитель ДомосКлаб
+            </a>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_6"}'>
+            Юрист
+            </a>
+        </div>
+
+        <div class="menu-row single js-next-step">
+            <a href="#" 
+            class="menu-btn full js-next-step" 
+            data-params='{"step":"tutor_7"}'>
+            Руководитель отдела новостроек
+            </a>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"main"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'tutor_1' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Куратор Сбербанка</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_1.jpg' %}" alt="Куратор Сбербанка"   style="width:250px;height:250px;object-fit:cover;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Тюлькина Елена Евгеньевна</span>
+            <span>+7 912 605 09 45</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+
+        
+    </div>
+
+{% elif step == 'tutor_2' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Куратор Нмаркет</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_2.jpg' %}" alt="Куратор Нмаркет"  style="width:250px;height:250px;object-fit:cover;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Воронова Ксения</span>
+            <span>+7 963 273 10 27</span>
+            <span>falkova.k@n-market.pro</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'tutor_3' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Офис-менеджер</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_3.jpg' %}" alt="Офис-менеджер"  style="width:250px;height:250px;object-fit:cover;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Якова Ольга Анатольевна</span>
+            <span>+7 903 082 15 74</span>
+            <span>Yakova.o@mail.ru</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'tutor_4' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Менеджер ХОРОШЕГО настроения</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_4.jpg' %}" alt="Менеджер ХОРОШЕГО настроения"  style="width:250px;height:250px;object-fit:cover;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Ермина Снежана Сергеевна</span>
+            <span>+7 982 607 99 07</span>
+            <span>s.ermina@mail.ru</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'tutor_5' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Руководитель ДомосКлаб</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_5.jpg' %}" alt="Руководитель ДомосКлаб"  style="width:250px;height:250px;object-fit:cover;object-position: top;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Лебедев Владимир Сергеевич</span>
+            <span>+7 963 445 07 70</span>
+            <span>lebedev@domos.club</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'tutor_6' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Юрист</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_6.jpg' %}" alt="Юрист"  style="width:250px;height:250px;object-fit:cover;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Яна Нигматуллина</span>
+            <span>+7 966 705 76 39</span>
+            <span>ya.m.nigmatullina@yandex.ru</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'tutor_7' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Руководитель отдела новостроек</span>
+        </div>
+
+        <div class="menu-row single" style="flex-direction:column;align-items:center;text-align:center;">
+            <img src="{% static 'tutor_7.jpg' %}" alt="Руководитель отдела новостроек" style="width:250px;height:250px;object-fit:cover;border-radius:50%;margin-bottom:16px;">
+            <span style="font-weight:bold;">Лане Татьяна</span>
+            <span>+7 900 389 48 23</span>
+            <span>lanetatyana@mail.ru</span>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"contacts"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% elif step == 'forms' %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Руководитель отдела новостроек</span>
+            <span class="menu-text">Внимание! Предпринимательская деятельность не&nbsp;может осуществляться физическим лицом!</span>
+            <br><br>
+            <span class="menu-text">Бланки договора для физических лиц рекомендуем использовать только для&nbsp;редактирования. Чтобы&nbsp;избежать нарушений и&nbsp;штрафов от&nbsp;государственных органов рекомендуем работать в&nbsp;качестве индивидуального предпринимателя либо самозанятого. Пройти регистрацию можно у&nbsp;администрации.</span>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank1' %}" class="menu-btn full">
+                Авансовое соглашение
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank2' %}" class="menu-btn full">
+                Договор аренды
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank3' %}" class="menu-btn full">
+                Ипотека
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank4' %}" class="menu-btn full">
+                Обмен
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank5' %}" class="menu-btn full">
+                ПДКП
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank6' %}" class="menu-btn full">
+                Подбор
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank7' %}" class="menu-btn full">
+                Продажа
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank8' %}" class="menu-btn full">
+                Расторжение договора услуг
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank9' %}" class="menu-btn full">
+                Юридическое сопровождение
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank10' %}" class="menu-btn full">
+                Соглашение о расторжении аванса
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank11' %}" class="menu-btn full">
+                Уведомление завышения/занижения краткое
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank12' %}" class="menu-btn full">
+                Уведомление завышения/занижения полное
+            </a>
+        </div>
+
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank13' %}" class="menu-btn full">
+                Уведомление о перепланировке
+            </a>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'download_files' 'helpfulblank14' %}" class="menu-btn full">
+                Акт выполненных работ
+            </a>
+        </div>
+
+        <div class="menu-row double">
+            <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"main"}'>⬅ Назад</a>
+            <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+        </div>
+    </div>
+
+{% endif %}

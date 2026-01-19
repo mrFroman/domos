@@ -1,0 +1,6 @@
+aiogram==2.25.1
+aiohttp==3.8.6
+asgiref==3.10.0
+config==0.5.1
+Django==5.2.8
+python-dotenv==1.2.1

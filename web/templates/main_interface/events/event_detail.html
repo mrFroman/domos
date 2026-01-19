@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        {% if event.photo and event.photo != '0' %}
+            <div style="margin: 16px 8px; text-align: center;">
+                <img src="{{ event.photo }}" alt="{{ event.name }}" style="max-width: 100%; border-radius: 8px;">
+            </div>
+        {% endif %}
+        <span class="row-text"><strong>📅 Дата:</strong> {{ event.date }}</span>
+        {% if event.description %}
+            <span class="row-text" style="margin-top: 12px; white-space: pre-wrap;">{{ event.description }}</span>
+        {% endif %}
+        {% if event.link and event.link != '-' %}
+            <div class="menu-row single" style="margin-top: 16px;">
+                <a href="{{ event.link }}" 
+                   class="menu-btn full" 
+                   style="text-decoration:none;" 
+                   target="_blank" 
+                   rel="noopener noreferrer">
+                   🔗 Перейти по ссылке <span>↗</span>
+                </a>
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="menu-row single">
+        <a href="{% url 'events_menu' %}" class="menu-btn back full">⬅ К списку мероприятий</a>
+    </div>
+    
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+
+</div>
+{% endblock %}
+

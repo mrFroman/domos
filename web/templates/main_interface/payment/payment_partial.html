@@ -1,0 +1,101 @@
+{% if step == 'period' %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">Оплата подписки DomosClub</span>
+        {% if pay_status %}
+            <span class="menu-label">{{ menu_lable }} {{end_pay}}</span>
+            <span class="menu-header-text">Выберите период оплаты</span>
+        {% else %}
+            <span class="menu-label">Выберите период оплаты</span>
+        {% endif %}
+    </div>
+
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step"
+           data-params='{"step":"name","user_id":"{{ user_id }}","period":"month"}'>1 месяц</a>
+    </div>
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step"
+           data-params='{"step":"name","user_id":"{{ user_id }}","period":"three"}'>3 месяца</a>
+    </div>
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step"
+           data-params='{"step":"name","user_id":"{{ user_id }}","period":"halfyear"}'>6 месяцев</a>
+    </div>
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step"
+           data-params='{"step":"name","user_id":"{{ user_id }}","period":"year"}'>1 год (скидка 10%)</a>
+    </div>
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step"
+           data-params='{"step":"name","user_id":"{{ user_id }}","period":"test"}'>Тестовая оплата</a>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+</div>
+
+{% elif step == 'name' %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">Оплата подписки DomosClub</span>
+        {% if period == 'month' %}<span class="menu-label">1 месяц, за {{ price }} рублей.</span>{% elif period == 'three' %}<span class="menu-label">3 месяца, за {{ price }} рублей.</span>{% elif period == 'halfyear' %}<span class="menu-label">6 месяцев, за {{ price }} рублей.</span>{% elif period == 'year' %}<span class="menu-label">1 год, за {{ price }} рублей.</span>{% elif period == 'test' %}<span class="menu-label">Тестовая подписка, за {{ price }} рубль.</span>{% endif %}
+        <span class="menu-header-text">Введите ваше ФИО (обязательно проверьте данные перед отправкой)</span>
+    </div>
+
+    <div class="menu-row single" style="flex-direction:column;align-items:flex-start;">
+        <input type="text" id="fio-input" name="name" class="menu-input" placeholder="Ваше ФИО"/>
+        <a href="#" class="menu-btn full js-next-step"
+           data-params='{"step":"confirm","user_id":"{{ user_id }}","period":"{{ period }}"}'>Продолжить</a>
+    </div>
+
+    <div class="menu-row double">
+        <a href="#" class="menu-btn back half js-next-step"
+           data-params='{"step":"period", "user_id":"{{ user_id }}"}'>⬅ Назад</a>
+        <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+    </div>
+</div>
+
+{% elif step == 'confirm' %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">Оплата подписки DomosClub</span>
+        {% if period == 'month' %}<span class="menu-label">1 месяц, за {{ price }} рублей.</span>{% elif period == 'three' %}<span class="menu-label">3 месяца, за {{ price }} рублей.</span>{% elif period == 'halfyear' %}<span class="menu-label">6 месяцев, за {{ price }} рублей.</span>{% elif period == 'year' %}<span class="menu-label">1 год, за {{ price }} рублей.</span>{% elif period == 'test' %}<span class="menu-label">Тестовая подписка, за {{ price }} рубль.</span>{% endif %}
+        <span class="menu-header-text">Время на оплату 30 минут</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{{ payment_link }}" class="menu-btn full js-pay" target="_blank"
+           data-params='{"step":"check_payment","user_id":"{{ user_id }}","period":"{{ period }}","payment_id":"{{ payment_id }}","name":"{{ name }}","payment_link":"{{ payment_link }}"}'>
+           💳 Оплатить
+        </a>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'download_offer' %}" class="menu-btn full">📄 Скачать оферту</a>
+    </div>
+
+    <div class="menu-row double">
+        <a href="#" class="menu-btn back half js-next-step"
+           data-params='{"step":"name", "user_id":"{{ user_id }}","period":"{{ period }}","payment_id":"{{ payment_id }}"}'>⬅ Назад</a>
+        <a href="{% url 'main_menu' %}" class="menu-btn back half">В главное меню</a>
+    </div>
+</div>
+
+{% elif step == 'check_payment' %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">Оплата подписки DomosClub</span>
+        <span class="menu-label">Проверяем оплату</span>
+    </div>
+
+    <div id="payment-status" data-payment-id="{{ payment_id }}">
+        ⏳ Ожидаем оплаты...
+    </div>
+
+    <div class="menu-row single" style="margin-top:10px;">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+</div>
+{% endif %}

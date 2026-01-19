@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+    </div>
+
+    {% if error %}
+    <div class="menu-row single">
+        <div class="row-text" style="color: red;">{{ error }}</div>
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="menu-row single">
+        <div class="row-text" style="color: green;">{{ success }}</div>
+    </div>
+    {% endif %}
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+
+    {# ===================================================================== #}
+    {# 1. СПИСОК ПОЗИЦИЙ #}
+    {# ===================================================================== #}
+    {% if action == "list" or not action %}
+        <div class="menu-row single">
+            <a href="?action=add" class="menu-btn full">➕ Добавить позицию</a>
+        </div>
+
+        {% if positions %}
+            {% for p in positions %}
+            <div class="menu-row">
+                <div class="row-text">
+                    <b>{{ forloop.counter }}. {{ p.name }}</b> — {{ p.price }} ₽
+                </div>
+                <div class="row-buttons">
+                    <a href="?action=edit&index={{ forloop.counter0 }}" class="menu-btn">✏️</a>
+                    <a href="?action=delete&index={{ forloop.counter0 }}" class="menu-btn">🗑</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <div class="menu-row single">
+            <div class="row-text">Позиций пока нет.</div>
+        </div>
+        {% endif %}
+    {% endif %}
+
+
+    {# ===================================================================== #}
+    {# 2. ДОБАВЛЕНИЕ ПОЗИЦИИ #}
+    {# ===================================================================== #}
+    {% if action == "add" %}
+        {% if not action_done %}
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="menu-row single">
+                <div class="row-text">
+                    <label>Название:</label>
+                    <input type="text" name="name" class="input full" required>
+                </div>
+            </div>
+
+            <div class="menu-row single">
+                <div class="row-text">
+                    <label>Цена (₽):</label>
+                    <input type="number" step="0.01" name="price" class="input full" required>
+                </div>
+            </div>
+
+            <div class="menu-row single">
+                <button class="menu-btn full">Добавить</button>
+            </div>
+        </form>
+        {% endif %}
+
+        <div class="menu-row single">
+            <a href="?action=list" class="menu-btn back full">⬅ Назад</a>
+        </div>
+    {% endif %}
+
+
+    {# ===================================================================== #}
+    {# 3. РЕДАКТИРОВАНИЕ #}
+    {# ===================================================================== #}
+    {% if action == "edit" %}
+        {% if not action_done %}
+        <form method="POST">
+            {% csrf_token %}
+
+            <div class="menu-row single">
+                <div class="row-text">
+                    <label>Название:</label>
+                    <input type="text" name="name" class="input full" value="{{ edit_position.name }}" required>
+                </div>
+            </div>
+
+            <div class="menu-row single">
+                <div class="row-text">
+                    <label>Цена (₽):</label>
+                    <input type="number" step="0.01" name="price" class="input full"
+                           value="{{ edit_position.price }}" required>
+                </div>
+            </div>
+
+            <div class="menu-row single">
+                <button class="menu-btn full">Сохранить</button>
+            </div>
+        </form>
+        {% endif %}
+
+        <div class="menu-row single">
+            <a href="?action=list" class="menu-btn back full">⬅ Назад</a>
+        </div>
+    {% endif %}
+
+
+    {# ===================================================================== #}
+    {# 4. УДАЛЕНИЕ #}
+    {# ===================================================================== #}
+    {% if action == "delete" %}
+        {% if not action_done %}
+        <div class="menu-row single">
+            <div class="row-text">
+                Вы уверены, что хотите удалить позицию
+                <b>"{{ delete_position.name }}"</b>?
+            </div>
+        </div>
+
+        <form method="POST">
+            {% csrf_token %}
+            <div class="menu-row">
+                <button class="menu-btn full" style="background: red;">Да, удалить</button>
+            </div>
+        </form>
+        {% endif %}
+
+        <div class="menu-row single">
+            <a href="?action=list" class="menu-btn back full">⬅ Назад</a>
+        </div>
+    {% endif %}
+
+
+
+
+</div>
+{% endblock %}

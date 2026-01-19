@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Проверка физического лица</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      background: #f7faff;
+      font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+      margin: 0;
+    }
+    .container {
+      max-width: 420px;
+      margin: 36px auto;
+      padding: 24px 18px 18px 18px;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 4px 16px 0 rgba(60,60,90,0.08);
+    }
+    h2 {
+      text-align: center;
+      font-size: 1.2rem;
+      margin-bottom: 18px;
+    }
+    form {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 13px 10px;
+      align-items: center;
+    }
+    label {
+      font-size: 1rem;
+      margin-bottom: 0;
+      justify-self: end;
+    }
+    input, select {
+      padding: 9px;
+      border-radius: 8px;
+      border: 1px solid #b8c1ec;
+      font-size: 1rem;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    input:focus {
+      border-color: #537fe7;
+    }
+    .full-width {
+      grid-column: 1 / -1;
+      justify-self: stretch;
+    }
+    button {
+      background: #537fe7;
+      color: #fff;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 8px;
+      padding: 11px 0;
+      font-size: 1rem;
+      margin-top: 10px;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #274db7;
+    }
+    @media (max-width: 500px) {
+      .container { margin: 18px 4px; padding: 16px 4px; }
+      h2 { font-size: 1rem; }
+      form { grid-template-columns: 1fr; }
+      label { justify-self: start; }
+      .full-width { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Проверка физического лица</h2>
+    <form action="/people_check_submit" method="post" autocomplete="on">
+      <input type="hidden" name="user_id" value="{{ user_id }}">
+      <input type="hidden" name="message_id" value="{{ message_id }}">
+
+      <label for="last_name">Фамилия*</label>
+      <input id="last_name" name="last_name" required>
+
+      <label for="first_name">Имя*</label>
+      <input id="first_name" name="first_name" required>
+
+      <label for="second_name">Отчество</label>
+      <input id="second_name" name="second_name">
+
+      <label for="birth_date">Дата рождения</label>
+      <input id="birth_date" name="birth_date" placeholder="дд.мм.гггг" pattern="\d{2}\.\d{2}\.\d{4}" required>
+
+      <label for="regions">Регионы*</label>
+      <input id="regions" name="regions" value="66" required>
+
+      <label for="passport_series">Серия паспорта</label>
+      <input id="passport_series" name="passport_series" maxlength="4" pattern="\d*" required>
+
+      <label for="passport_number">Номер паспорта</label>
+      <input id="passport_number" name="passport_number" maxlength="6" pattern="\d*" required>
+
+      <label for="inn">ИНН</label>
+      <input id="inn" name="inn" maxlength="12" pattern="\d*" required>
+
+      <button type="submit" class="full-width">Сохранить и проверить</button>
+    </form>
+  </div>
+</body>
+</html>

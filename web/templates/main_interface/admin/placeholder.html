@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="row-text">{{ description }}</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,173 @@
+{% if step == 'floor' %}
+    <div class="menu-header">
+        <span class="menu-title">Бронирование переговорки</span>
+        <span class="menu-label">Выберите этаж</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step" data-params='{"step":"room","user_id":"{{ user.user_id }}","floornum":"10"}' style="text-decoration:none;">
+            10 этаж
+        </a>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ В главное меню</a>
+    </div>
+
+{% elif step == 'room' %}
+    <div class="menu-header">
+        <span class="menu-title">Бронирование переговорки</span>
+        <span class="menu-label">Выберите переговорку</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step" data-params='{"step":"date","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"1"}' style="text-decoration:none;">
+            Переговорная 1
+        </a>
+    </div>
+
+    <div class="menu-row single">
+        <a href="#" class="menu-btn full js-next-step" data-params='{"step":"date","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"2"}' style="text-decoration:none;">
+            Переговорная 2
+        </a>
+    </div>
+    
+    <div class="menu-row double">
+        <a href="{% url 'meeting_booking' %}" class="menu-btn back half" style="text-decoration:none;">⬅ Назад</a>
+        <a href="{% url 'main_menu' %}" class="menu-btn back half" style="text-decoration:none;">В главное меню</a>
+    </div>
+
+{% elif step == 'date' %}
+    <div class="menu-header">
+        <span class="menu-title">Бронирование переговорки</span>
+        <span class="menu-label">Выберите дату проведения встречи</span>
+    </div>
+
+    {# Навигация по месяцам #}
+    <div class="menu-row double">
+        <a href="#" 
+        class="menu-btn half js-next-step" 
+        style="flex:0; text-decoration:none;"
+        data-params='{"step":"date","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"{{ roomnum }}","month":"{{ prev_month }}","year":"{{ prev_year }}"}'>
+        «
+        </a>
+
+        <span class="menu-btn full" style="flex:1;" disabled>
+            {{ current_month }} {{ current_year }}
+        </span>
+
+        <a href="#" 
+        class="menu-btn half js-next-step" 
+        style="flex:0; text-decoration:none;"
+        data-params='{"step":"date","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"{{ roomnum }}","month":"{{ next_month }}","year":"{{ next_year }}"}'>
+        »
+        </a>
+    </div>
+
+    {# Сетка дней месяца #}
+    {% for week in calendar_weeks %}
+        <div class="menu-row">
+            {% for day in week %}
+                {% if day %}
+                    <a href="#" class="menu-btn back half js-next-step"
+                    style="flex:1; text-decoration:none;"
+                    data-params='{"step":"time","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"{{ roomnum }}","meeting_day":"{{ day|date:"d/m/Y" }}"}'>
+                        {{ day.day }}
+                    </a>
+                {% else %}
+                    <span class="menu-btn back half" style="flex:1;opacity:0.3;">&nbsp;</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endfor %}
+
+    <div class="menu-row double">
+        <a href="#"
+            class="menu-btn back half js-next-step"
+            data-params='{"step":"room","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}"}'
+            style="text-decoration:none;">
+            ⬅ Назад
+        </a>
+        <a href="{% url 'main_menu' %}" class="menu-btn back half" style="text-decoration:none;">В главное меню</a>
+    </div>
+
+{% elif step == 'time' %}
+    <div class="menu-header">
+        <span class="menu-title">Бронирование переговорки</span>
+        <span class="menu-label">Выберите время</span>
+    </div>
+
+    <form id="time-select-form" class="menu-row single" style="flex-direction:column;align-items:flex-start;">
+
+        {% for slot in available_slots %}
+            {% if forloop.first or forloop.counter0|divisibleby:2 %}
+                <div class="menu-row double">
+            {% endif %}
+
+            {% if slot.is_busy %}
+                <span class="menu-btn back half" style="flex:1;opacity:0.5;cursor:not-allowed;">{{ slot.label }}</span>
+            {% else %}
+                <a href="#" class="menu-btn half js-next-step" 
+                   data-params='{"step":"confirm","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"{{ roomnum }}","meeting_day":"{{ meeting_day }}","time":"{{ slot.value }}"}' 
+                   style="text-decoration:none;">{{ slot.label }}</a>
+            {% endif %}
+
+            {% if forloop.counter|divisibleby:2 or forloop.last %}
+                </div>
+            {% endif %}
+        {% empty %}
+            <a href="#" disabled>Нет доступных слотов</a>
+        {% endfor %}
+    </form>
+
+    <div class="menu-row double">
+        <a href="#" class="menu-btn back half js-next-step" 
+           data-params='{"step":"date","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"{{ roomnum }}"}' 
+           style="text-decoration:none;">⬅ Назад</a>
+        <a href="{% url 'main_menu' %}" class="menu-btn back half" style="text-decoration:none;">В главное меню</a>
+    </div>
+
+
+{% elif step == 'confirm' %}
+    <div class="menu-header">
+        <span class="menu-title">Бронирование переговорки</span>
+        <span class="menu-label">Подтвердите бронь</span>
+    </div>
+
+    {% if booking_result %}
+        <div class="menu-row single" style="flex-direction:column;gap:4px;">
+            <span>{{ booking_result.message }}</span>
+        </div>
+    {% endif %}
+
+    {% if booking_result and booking_result.status == 'success' %}
+        <div class="menu-row single">
+            <span>Этаж: {{ floornum }}, Переговорка: {{ roomnum }} </span>
+        </div>
+        <div class="menu-row single">
+            <span>Дата и время: {{ meeting_day_display|default:meeting_day }} {{ time }}</span>
+        </div>
+    {% else %}
+        <div class="menu-row single">
+            <span>Этаж: {{ floornum }}, Переговорка: {{ roomnum }} </span>
+        </div>
+        <div class="menu-row single">
+            <span>Дата и время: {{ meeting_day_display|default:meeting_day }} {{ time }}</span>
+        </div>
+        <div class="menu-row single">
+            <form method="post" style="width:100%;">{% csrf_token %}
+                <input type="hidden" name="floornum" value="{{ floornum }}">
+                <input type="hidden" name="roomnum" value="{{ roomnum }}">
+                <input type="hidden" name="meeting_day" value="{{ meeting_day }}">
+                <input type="hidden" name="time" value="{{ time }}">
+                <button type="submit" class="menu-btn full">Забронировать</button>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="menu-row double">
+        <a href="#" class="menu-btn back half js-next-step" data-params='{"step":"time","user_id":"{{ user.user_id }}","floornum":"{{ floornum }}","roomnum":"{{ roomnum }}","meeting_day":"{{ meeting_day }}"}' style="text-decoration:none;">⬅ Назад</a>
+        <a href="{% url 'main_menu' %}" class="menu-btn back half" style="text-decoration:none;">В главное меню</a>
+    </div>  
+
+{% endif %}

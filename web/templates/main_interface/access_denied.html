@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">{{ page_title }}</span>
+            <span class="menu-row-text">{{ message|linebreaksbr }}</span>
+        </div>
+        
+        <div class="menu-row single">
+            <a href="{% url 'main_menu' %}" class="menu-btn full" style="text-decoration:none;">⬅ В главное меню</a>
+        </div>
+    </div>
+{% endblock %}

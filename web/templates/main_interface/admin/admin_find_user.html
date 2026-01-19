@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+    </div>
+
+    <!-- Форма поиска -->
+    <form method="post" class="menu-row single">
+        {% csrf_token %}
+        <input 
+            type="text"
+            name="username"
+            placeholder="Введите username"
+            class="menu-input"
+            required
+            style="width: 100%; padding: 10px; margin-bottom: 10px;"
+        >
+        <button type="submit" name="action" value="search" class="menu-btn back full">
+            Найти
+        </button>
+    </form>
+
+    {% if message %}
+        <div class="menu-row single">
+            <div class="row-text">{{ message }}</div>
+        </div>
+    {% endif %}
+
+    {% if result %}
+        <div class="menu-row single">
+            <div class="row-text">
+                <strong>Пользователь:</strong> @{{ result.username }} <br>
+                Telegram ID: {{ result.user_id }}<br>
+                Оплата: {{ result.pay_status }}<br>
+                Ранг: {{ result.rank }}<br>
+                Бан: {{ result.banned }}
+            </div>
+        </div>
+
+        <!-- Действия -->
+        <div class="menu-row single">
+            <form method="post" style="margin-bottom: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ result.user_id }}">
+                <button type="submit" name="action" value="ban" class="menu-btn back full">Забанить</button>
+            </form>
+
+            <form method="post" style="margin-bottom: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ result.user_id }}">
+                <button type="submit" name="action" value="unban" class="menu-btn back full">Разбанить</button>
+            </form>
+
+            <form method="post" style="margin-bottom: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ result.user_id }}">
+                <button type="submit" name="action" value="take_sub" class="menu-btn back full">
+                    Отключить подписку
+                </button>
+            </form>
+
+            <form method="post" style="margin-bottom: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ result.user_id }}">
+                <button type="submit" name="action" value="toggle_admin" class="menu-btn back full">
+                    Переключить админ/юзер
+                </button>
+            </form>
+
+            <!-- Выдать месяцы подписки -->
+            <form method="post" style="margin-bottom: 10px;">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ result.user_id }}">
+                <input type="number" name="months" placeholder="Месяцев" class="menu-input" required>
+                <button type="submit" name="action" value="give_months" class="menu-btn back full">
+                    Выдать подписку
+                </button>
+            </form>
+        </div>
+    {% endif %}
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">
+            ⬅ В главное меню
+        </a>
+    </div>
+
+</div>
+{% endblock %}

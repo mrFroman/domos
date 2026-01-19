@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Menedzher-soprovozhdeniya-11-20" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Менеджер сопровождения <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Ofis-menedzher-12-08-6" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Офис менеджер <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Zastrojshchiki-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Партнерщик <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Bi-heppi-menedzher-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Менеджер хорошего настроения <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/YUrist-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Юрист <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Razmeshchenie-oplaty-i-reklamy-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Размещение и оплата рекламы <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Avanszadatok-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Аванс/задаток <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Kak-zaklyuchit-dogovor-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Как заключить договор с клиентом <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Obucheniya-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Обучения <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="https://telegra.ph/Missiya-i-cennosti-12-08" 
+           class="menu-btn full" 
+           style="text-decoration:none;" 
+           target="_blank" 
+           rel="noopener noreferrer">
+           Миссия и ценности <span>↗</span>
+        </a>
+    </div>
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ Назад</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="menu-label">Проверьте данные перед формированием договора</span>
+    </div>
+
+    <div class="menu-row single">
+        <div class="menu-header-text">
+            <strong>Тип договора: </strong> 
+            {% if doc_type == "1" %}Авансовое соглашение
+            {% elif doc_type == "2" %}Договор аренды
+            {% elif doc_type == "3" %}Ипотека
+            {% elif doc_type == "4" %}Обмен
+            {% elif doc_type == "6" %}Подбор
+            {% elif doc_type == "7" %}Продажа
+            {% elif doc_type == "8" %}Расторжение договора услуг
+            {% elif doc_type == "9" %}Юридическое сопровождение
+            {% elif doc_type == "10" %}Соглашение о расторжении аванса
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{{ edit_url }}"  class="menu-btn full" style="text-decoration:none;" target="_blank" >✏️ Проверить и изменить данные</a>
+    </div>
+
+    <!-- Статус обработки -->
+    <div class="menu-row single" id="status-section" style="display: none;">
+        <div class="menu-row-text" id="status-message">
+            <div class="loading-spinner"></div>
+            <span id="status-text">Ожидание обновления данных...</span>
+        </div>
+    </div>
+
+    <!-- Кнопка открытия договора (показывается когда договор готов) -->
+    <div class="menu-row single" id="confirm-section" style="display: none;">
+        <a id="open-contract-btn" href="#" target="_blank" class="menu-btn full" style="text-decoration:none;">
+            ✅ Открыть сформированный договор
+        </a>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ Назад</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const token = '{{ token }}';
+    const statusSection = document.getElementById('status-section');
+    const confirmSection = document.getElementById('confirm-section');
+    const statusText = document.getElementById('status-text');
+    const openBtn = document.getElementById('open-contract-btn');
+    
+    if (token) {
+        // Показываем статус сразу
+        statusSection.style.display = 'block';
+        
+        // Запускаем проверку статуса
+        checkStatus();
+    }
+    
+    function checkStatus() {
+        fetch(`/domosclub/contract/check_processing_status/?token=${token}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.status === 'completed' && data.file_url) {
+                        // Договор готов — показываем кнопку открытия
+                        statusText.textContent = '✅ Договор сформирован!';
+                        statusSection.style.display = 'none';
+                        confirmSection.style.display = 'block';
+                        openBtn.href = data.file_url;
+                    } else if (data.status === 'processing' || data.status === 'waiting') {
+                        // Продолжаем ожидание
+                        statusText.textContent = data.status === 'processing' ? '⚙️ Генерация договора...' : '⏳ Ожидание обновления данных...';
+                        setTimeout(checkStatus, 3000); // Проверяем каждые 3 секунды
+                    } else if (data.status === 'error') {
+                        // Ошибка
+                        statusText.textContent = '❌ Ошибка: ' + data.message;
+                        statusText.style.color = 'red';
+                    }
+                } else {
+                    // Ошибка запроса
+                    statusText.textContent = '❌ Ошибка: ' + data.message;
+                    statusText.style.color = 'red';
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при проверке статуса:', error);
+                statusText.textContent = '❌ Ошибка соединения';
+                statusText.style.color = 'red';
+            });
+    }
+});
+</script>
+
+<style>
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+{% comment %} #status-section .menu-row-text {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    background-color:rgba(255, 255, 255, 0);
+    border-radius: 8px;
+    width: 100%;
+} {% endcomment %}
+
+#confirm-section button {
+    padding: 15px;
+    background-color: #28a745;
+    color: white;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#confirm-section button:hover {
+    background-color: #218838;
+}
+</style>
+{% endblock %}

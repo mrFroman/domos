@@ -1,0 +1,572 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="menu-label">Пошаговая загрузка документов</span>
+    </div>
+
+    <div class="upload-steps">
+        <div class="step-item" id="stepIndicator1"><span class="circle">1</span> Основной разворот паспорта</div>
+        <div class="step-sep"></div>
+        <div class="step-item disabled" id="stepIndicator2"><span class="circle">2</span> Страница регистрации</div>
+        <div class="step-sep"></div>
+        <div class="step-item disabled" id="stepIndicator3"><span class="circle">3</span> Сохранение</div>
+    </div>
+
+    <div class="upload-container">
+        <form id="passportUploadForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="passport_type" value="{{ passport_type }}">
+            
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">
+                        <strong>Нажмите для выбора файла</strong><br>
+                        или перетащите фото сюда
+                    </div>
+                    <div class="upload-formats">Поддерживаемые форматы: JPG, PNG, PDF</div>
+                </div>
+                <input type="file" id="photoInput" name="photo" accept="image/*,.pdf" style="display: none;">
+            </div>
+
+            <div class="upload-preview" id="uploadPreview" style="display: none;">
+                <div class="preview-image">
+                    <img id="previewImg" src="" alt="Предварительный просмотр">
+                </div>
+                <div class="preview-info">
+                    <div class="file-name" id="fileName"></div>
+                    <div class="file-size" id="fileSize"></div>
+                </div>
+                <button type="button" class="menu-btn secondary" id="changeFileBtn">Изменить файл</button>
+            </div>
+
+            <div class="upload-actions" style="display: none;" id="uploadActions">
+                <button type="submit" class="menu-btn full" id="uploadBtn">
+                    <span class="btn-text">Загрузить и обработать</span>
+                    <span class="btn-loading" style="display: none;">🔄 Обрабатываю...</span>
+                </button>
+            </div>
+        </form>
+        
+        
+        <div id="step2Container" style="display:none;">
+            <div class="menu-header" style="margin-top: 10px;">
+                <span class="menu-label">Шаг 2. Загрузите фото страницы с регистрацией</span>
+            </div>
+            <form id="registrationUploadForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="passport_type" value="{{ passport_type }}">
+                <div class="upload-section">
+                    <div class="upload-area" id="regUploadArea">
+                        <div class="upload-icon">🏠</div>
+                        <div class="upload-text">
+                            <strong>Нажмите для выбора файла</strong><br>
+                            или перетащите фото сюда
+                        </div>
+                        <div class="upload-formats">Поддерживаемые форматы: JPG, PNG, PDF</div>
+                    </div>
+                    <input type="file" id="regPhotoInput" name="photo" accept="image/*,.pdf" style="display: none;">
+                </div>
+                <div class="upload-actions" style="display: none;" id="regUploadActions">
+                    <button type="submit" class="menu-btn full" id="regUploadBtn">
+                        <span class="btn-text">Загрузить и обработать</span>
+                        <span class="btn-loading" style="display: none;">🔄 Обрабатываю...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="upload-result" id="uploadResult" style="display: none;">
+            <div class="result-message" id="resultMessage"></div>
+            <div class="result-actions" id="resultActions"></div>
+        </div>
+    </div>
+    
+    <div class="menu-row single">
+        <a href="{% url 'create_contract_menu' %}" class="menu-btn back full" style="text-decoration:none;">⬅ Назад</a>
+    </div>
+</div>
+
+<style>
+.upload-container {
+    margin: 20px 0;
+}
+
+.upload-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #2b2b2b;
+}
+
+.step-item.disabled { color: #9aa0a6; font-weight: 500; }
+
+.step-sep { width: 30px; height: 2px; background: #e0e0e0; }
+
+.step-item .circle {
+    width: 24px; height: 24px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;
+    background: #e0e0e0; color: #333; font-size: 12px;
+}
+
+.step-item.active .circle { background: #007bff; color: #fff; }
+.step-item.done .circle { background: #28a745; color: #fff; }
+
+.upload-section {
+    margin-bottom: 20px;
+}
+
+.upload-area {
+    border: 2px dashed #ddd;
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    background-color: #f9f9f9;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.upload-area:hover {
+    border-color: #007bff;
+    background-color: #f0f8ff;
+}
+
+.upload-area.dragover {
+    border-color: #007bff;
+    background-color: #e6f3ff;
+}
+
+.upload-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.upload-text {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.upload-formats {
+    font-size: 12px;
+    color: #666;
+}
+
+.upload-actions {
+    margin-top: 20px;
+}
+
+.upload-preview {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+}
+
+.preview-image {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.preview-image img {
+    max-width: 200px;
+    max-height: 150px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.preview-info {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.file-name {
+    font-weight: bold;
+    color: #333;
+}
+
+.file-size {
+    color: #666;
+    font-size: 12px;
+}
+
+.upload-result {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.upload-result.success {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+}
+
+.upload-result.error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.result-message {
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.result-actions {
+    text-align: center;
+}
+
+.menu-btn.secondary {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    margin: 5px;
+}
+
+.menu-btn.secondary:hover {
+    background-color: #5a6268;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Шаги-индикаторы
+    const stepIndicator1 = document.getElementById('stepIndicator1');
+    const stepIndicator2 = document.getElementById('stepIndicator2');
+    const stepIndicator3 = document.getElementById('stepIndicator3');
+    function setStep(step) {
+        [stepIndicator1, stepIndicator2, stepIndicator3].forEach(el => {
+            el.classList.remove('active','done','disabled');
+            el.classList.add('disabled');
+        });
+        if (step === 1) {
+            stepIndicator1.classList.remove('disabled');
+            stepIndicator1.classList.add('active');
+        } else if (step === 2) {
+            stepIndicator1.classList.remove('disabled');
+            stepIndicator1.classList.add('done');
+            stepIndicator2.classList.remove('disabled');
+            stepIndicator2.classList.add('active');
+        } else if (step === 3) {
+            stepIndicator1.classList.remove('disabled');
+            stepIndicator1.classList.add('done');
+            stepIndicator2.classList.remove('disabled');
+            stepIndicator2.classList.add('done');
+            stepIndicator3.classList.remove('disabled');
+            stepIndicator3.classList.add('active');
+        }
+    }
+    setStep(1);
+
+    const uploadArea = document.getElementById('uploadArea');
+    const photoInput = document.getElementById('photoInput');
+    const uploadActions = document.getElementById('uploadActions');
+    const uploadPreview = document.getElementById('uploadPreview');
+    const uploadResult = document.getElementById('uploadResult');
+    const form = document.getElementById('passportUploadForm');
+    const step2Container = document.getElementById('step2Container');
+    const regUploadArea = document.getElementById('regUploadArea');
+    const regPhotoInput = document.getElementById('regPhotoInput');
+    const regUploadActions = document.getElementById('regUploadActions');
+    const regForm = document.getElementById('registrationUploadForm');
+    
+    // Обработка клика по области загрузки
+    uploadArea.addEventListener('click', function() {
+        photoInput.click();
+    });
+    
+    // Обработка перетаскивания файлов
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileSelect(files[0]);
+        }
+    });
+    
+    // Обработка выбора файла
+    photoInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            handleFileSelect(this.files[0]);
+        }
+    });
+    
+    // Обработка выбора файла
+    function handleFileSelect(file) {
+        // Проверяем тип файла
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            showResult('error', '❌ Неподдерживаемый формат файла. Используйте JPG, PNG или PDF.');
+            return;
+        }
+        
+        // Проверяем размер файла (максимум 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            showResult('error', '❌ Файл слишком большой. Максимальный размер: 10MB.');
+            return;
+        }
+        
+        // Показываем превью для изображений
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('previewImg').src = e.target.result;
+                uploadPreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            // Для PDF показываем только информацию о файле
+            uploadPreview.style.display = 'block';
+            document.getElementById('previewImg').style.display = 'none';
+        }
+        
+        // Показываем информацию о файле
+        document.getElementById('fileName').textContent = file.name;
+        document.getElementById('fileSize').textContent = formatFileSize(file.size);
+        
+        // Показываем кнопки действий
+        uploadActions.style.display = 'block';
+        
+        // Скрываем результат предыдущей загрузки
+        uploadResult.style.display = 'none';
+    }
+    
+    // Кнопка "Изменить файл"
+    document.getElementById('changeFileBtn').addEventListener('click', function() {
+        photoInput.click();
+    });
+    
+    // Обработка отправки формы
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const uploadBtn = document.getElementById('uploadBtn');
+        const btnText = uploadBtn.querySelector('.btn-text');
+        const btnLoading = uploadBtn.querySelector('.btn-loading');
+        
+        // Показываем индикатор загрузки
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+        uploadBtn.disabled = true;
+        
+        // Скрываем предыдущий результат
+        uploadResult.style.display = 'none';
+        
+        const formData = new FormData(form);
+        
+        fetch('{% url "upload_passport_photo" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Переходим к шагу 2
+                setStep(2);
+                document.getElementById('resultActions').innerHTML = '';
+                uploadResult.style.display = 'none';
+                document.getElementById('resultMessage').textContent = '';
+                // Прячем элементы шага 1
+                uploadArea.style.display = 'none';
+                uploadActions.style.display = 'none';
+                uploadPreview.style.display = 'none';
+                // Показываем шаг 2
+                step2Container.style.display = 'block';
+                showResult('success', '✅ Данные паспорта распознаны. Перейдите к загрузке страницы регистрации.');
+            } else {
+                showResult('error', data.message);
+            }
+        })
+        .catch(error => {
+            showResult('error', '❌ Произошла ошибка при загрузке: ' + error.message);
+        })
+        .finally(() => {
+            // Скрываем индикатор загрузки
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            uploadBtn.disabled = false;
+        });
+    });
+    
+    function showResult(type, message) {
+        uploadResult.className = `upload-result ${type}`;
+        document.getElementById('resultMessage').textContent = message;
+        uploadResult.style.display = 'block';
+    }
+    
+    // STEP 2: Регистрация — drag&drop/выбор
+    regUploadArea.addEventListener('click', function() { regPhotoInput.click(); });
+    regUploadArea.addEventListener('dragover', function(e) { e.preventDefault(); regUploadArea.classList.add('dragover'); });
+    regUploadArea.addEventListener('dragleave', function(e) { e.preventDefault(); regUploadArea.classList.remove('dragover'); });
+    regUploadArea.addEventListener('drop', function(e) { e.preventDefault(); regUploadArea.classList.remove('dragover'); const files = e.dataTransfer.files; if (files.length>0) handleRegFile(files[0]); });
+    regPhotoInput.addEventListener('change', function() { if (this.files.length>0) handleRegFile(this.files[0]); });
+
+    function handleRegFile(file) {
+        const allowed = ['image/jpeg','image/jpg','image/png','application/pdf'];
+        if (!allowed.includes(file.type)) { showResult('error','❌ Неподдерживаемый формат файла. Используйте JPG, PNG или PDF.'); return; }
+        if (file.size > 10 * 1024 * 1024) { showResult('error','❌ Файл слишком большой. Максимальный размер: 10MB.'); return; }
+        regUploadActions.style.display = 'block';
+        uploadResult.style.display = 'none';
+    }
+
+    // Отправка шага 2
+    regForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('regUploadBtn');
+        const t = btn.querySelector('.btn-text');
+        const l = btn.querySelector('.btn-loading');
+        t.style.display='none'; l.style.display='inline'; btn.disabled = true;
+        const fd = new FormData(regForm);
+        fetch('{% url "upload_registration_photo" %}', { method:'POST', body: fd, headers:{ 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value } })
+        .then(r=>r.json())
+        .then(data=>{
+            if (data.success) {
+                setStep(3);
+                step2Container.style.display = 'none';
+                const resultActions = document.getElementById('resultActions');
+                showResult('success', data.message);
+                if (data.next_step === 'upload_client_passport') {
+                    resultActions.innerHTML = `<a href="{% url 'upload_passport_page' passport_type='client' %}" class="menu-btn full" style="text-decoration:none;">Загрузить паспорт клиента</a>`;
+                } else if (data.next_step === 'contract_menu') {
+                    resultActions.innerHTML = `<a href="{% url 'create_contract_menu' %}" class="menu-btn full" style="text-decoration:none;">Перейти к созданию договоров</a>`;
+                } else { resultActions.innerHTML = ''; }
+            } else { showResult('error', data.message); }
+        })
+        .catch(err=>{ showResult('error','❌ Произошла ошибка при загрузке: ' + err.message); })
+        .finally(()=>{ t.style.display='inline'; l.style.display='none'; btn.disabled=false; });
+    });
+    
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+});
+
+// Глобальные функции для кнопок
+function uploadRegistration() {
+    // Переходим к загрузке регистрации
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{% url "upload_registration_photo" %}';
+    form.enctype = 'multipart/form-data';
+    
+    // Добавляем CSRF токен
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden';
+    csrfInput.name = 'csrfmiddlewaretoken';
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+    
+    // Добавляем тип паспорта
+    const passportTypeInput = document.createElement('input');
+    passportTypeInput.type = 'hidden';
+    passportTypeInput.name = 'passport_type';
+    passportTypeInput.value = '{{ passport_type }}';
+    form.appendChild(passportTypeInput);
+    
+    // Создаем input для фото
+    const photoInput = document.createElement('input');
+    photoInput.type = 'file';
+    photoInput.name = 'photo';
+    photoInput.accept = 'image/*,.pdf';
+    photoInput.required = true;
+    form.appendChild(photoInput);
+    
+    // Показываем диалог выбора файла
+    photoInput.click();
+    
+    photoInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            // Отправляем форму
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const uploadResult = document.getElementById('uploadResult');
+                const resultMessage = document.getElementById('resultMessage');
+                const resultActions = document.getElementById('resultActions');
+                
+                if (data.success) {
+                    uploadResult.className = 'upload-result success';
+                    resultMessage.textContent = data.message;
+                    
+                    if (data.next_step === 'upload_client_passport') {
+                        resultActions.innerHTML = `<button type="button" class="menu-btn full" onclick="uploadClientPassport()">Загрузить паспорт клиента</button>`;
+                    } else if (data.next_step === 'contract_menu') {
+                        resultActions.innerHTML = `<a href="{% url 'create_contract_menu' %}" class="menu-btn full" style="text-decoration:none;">Перейти к созданию договоров</a>`;
+                    }
+                } else {
+                    uploadResult.className = 'upload-result error';
+                    resultMessage.textContent = data.message;
+                    resultActions.innerHTML = `<button type="button" class="menu-btn secondary" onclick="uploadRegistration()">Попробовать еще раз</button>`;
+                }
+                
+                uploadResult.style.display = 'block';
+            })
+            .catch(error => {
+                const uploadResult = document.getElementById('uploadResult');
+                const resultMessage = document.getElementById('resultMessage');
+                const resultActions = document.getElementById('resultActions');
+                
+                uploadResult.className = 'upload-result error';
+                resultMessage.textContent = '❌ Произошла ошибка: ' + error.message;
+                resultActions.innerHTML = `<button type="button" class="menu-btn secondary" onclick="uploadRegistration()">Попробовать еще раз</button>`;
+                uploadResult.style.display = 'block';
+            });
+        }
+    });
+}
+
+function uploadClientPassport() {
+    window.location.href = '{% url "upload_passport_page" passport_type="client" %}';
+}
+</script>
+{% endblock %}

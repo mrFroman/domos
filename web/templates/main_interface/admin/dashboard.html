@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">{{ page_title }}</h1>
+    <p class="content-subtitle">{{ page_subtitle }}</p>
+</div>
+
+<div class="content-body">
+    <div class="services-grid">
+        <a href="{% url 'admin_analytics' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">⚖️</div>
+            <div class="service-title">Аналитика</div>
+            <div class="service-description">Статистика и аналитика платформы</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_broadcast' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">📣</div>
+            <div class="service-title">Сделать рассылку</div>
+            <div class="service-description">Отправка сообщений пользователям</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_paid' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">🟢</div>
+            <div class="service-title">Оплаченные</div>
+            <div class="service-description">Список пользователей с активной подпиской</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_unpaid' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">🆓</div>
+            <div class="service-title">Неоплаченные</div>
+            <div class="service-description">Список пользователей без подписки</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_find_user' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">🔍</div>
+            <div class="service-title">Найти пользователя</div>
+            <div class="service-description">Поиск пользователей в системе</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_legal_requests' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">⚖️</div>
+            <div class="service-title">Запросы к юристу</div>
+            <div class="service-description">Управление юридическими запросами</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_advert_requests' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">☎️</div>
+            <div class="service-title">Запросы на рекламные объявления</div>
+            <div class="service-description">Управление заявками на рекламу</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_advert_queries' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">☎️</div>
+            <div class="service-title">Запросы к рекламе</div>
+            <div class="service-description">Запросы по размещенной рекламе</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_advert_management' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">🎯</div>
+            <div class="service-title">Управление рекламой</div>
+            <div class="service-description">Настройка и управление рекламными позициями</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_feedback_table' %}" target="_blank" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">📊</div>
+            <div class="service-title">Таблица обратной связи</div>
+            <div class="service-description">Просмотр обратной связи от пользователей</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_add_realtor' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">➕</div>
+            <div class="service-title">Добавить риелтора</div>
+            <div class="service-description">Добавление нового риелтора в систему</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+
+        <a href="{% url 'admin_add_contact' %}" class="service-card" style="text-decoration: none;">
+            <div class="service-icon">➕</div>
+            <div class="service-title">Добавить контакт</div>
+            <div class="service-description">Добавление нового контакта</div>
+            <span class="service-status available">Доступно</span>
+        </a>
+    </div>
+</div>
+{% endblock %}

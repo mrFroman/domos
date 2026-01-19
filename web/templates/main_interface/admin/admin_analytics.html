@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+        <span class="menu-label">{{ msg|safe|linebreaksbr }}</span>
+    </div>
+
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">⬅ В главное меню</a>
+    </div>
+
+    {% for user in paid_users %}
+    <div class="menu-row single">
+        <a href="https://t.me/{{ user.0 }}"
+           target="_blank"
+           class="menu-btn back full"
+        >
+            @{{ user.0 }}
+        </a>
+    </div>
+    {% empty %}
+        <span class="row-text">Нет платных пользователей</span>
+    {% endfor %}
+</div>
+{% endblock %}

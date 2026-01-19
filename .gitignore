@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Database files
+*.db
+*.sqlite
+*.sqbpro
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+
+# Media files (if needed, uncomment)
+# *.jpg
+# *.jpeg
+# *.png
+# *.gif
+# *.mp4
+# *.MP4
+
+# Service account keys (security)
+service_account.json
+*.json
+
+# Vector index files
+*.faiss
+*.pkl
+
+# Processing files
+*.processing
+
+# Stack dumps
+*.stackdump

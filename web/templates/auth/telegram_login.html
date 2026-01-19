@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="main-menu">
+        <div class ="menu-header">
+            <span class="menu-title">Вход через Telegram</span>
+            <span class="menu-label" id="status">Ожидание подтверждения...</span>
+        </div>
+        <div class="menu-row single">
+            <a href="{{ telegram_link }}" id="telegram-login-btn" class="menu-btn full" style="text-decoration:none;">
+                Войти
+            </a>
+        </div>
+    </div>
+
+    <script>
+        const token = "{{ telegram_token }}";
+        const checkTokenUrl = "{% url 'check_telegram_token' %}";
+        const telegramAuthUrl = "{% url 'telegram_auth_callback' %}";
+        const maxWaitMs = 15 * 60 * 1000;
+        const startTime = Date.now();
+        const statusElement = document.getElementById('status');
+        const loginButton = document.getElementById('telegram-login-btn');
+        let pollingStarted = false;
+
+        function reloadWithMessage(message) {
+            statusElement.innerText = message;
+            setTimeout(() => window.location.reload(), 1500);
+        }
+
+        async function checkToken() {
+            if (!pollingStarted) {
+                return;
+            }
+            const elapsed = Date.now() - startTime;
+            if (elapsed >= maxWaitMs) {
+                reloadWithMessage('Время ожидания истекло, обновляем страницу...');
+                return;
+            }
+
+            const response = await fetch(`${checkTokenUrl}?token=${token}`);
+            const data = await response.json();
+            if (data.status === 'ok') {
+                window.location.href = `${telegramAuthUrl}?token=${token}`;
+            } else if (data.status === 'pending') {
+                setTimeout(checkToken, 1000);
+            } else if (data.status === 'expired' || data.status === 'invalid') {
+                reloadWithMessage('Сессия истекла, генерируем новый токен...');
+            } else if (data.status === 'used') {
+                reloadWithMessage('Токен уже использован, создаем новый...');
+            } else {
+                statusElement.innerText = data.message || 'Ошибка токена';
+            }
+        }
+
+        loginButton.addEventListener('click', () => {
+            if (pollingStarted) {
+                return;
+            }
+            pollingStarted = true;
+            statusElement.innerText = 'Ожидаем подтверждения в Telegram...';
+            // даём Telegram немного времени открыться
+            setTimeout(checkToken, 500);
+        });
+    </script>
+    
+
+{% endblock %}

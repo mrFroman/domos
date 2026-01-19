@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">{{ page_title }}</h1>
+    <p class="content-subtitle">{{ page_subtitle }}</p>
+</div>
+
+<div class="content-body">
+    <div class="card">
+        <div style="text-align: center; padding: 40px 20px;">
+            <div style="font-size: 64px; margin-bottom: 24px;">🤖</div>
+            <h2 style="font-size: 24px; margin-bottom: 16px; color: var(--text-primary);">AI-Помощник Domos</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 32px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                Ваш персональный помощник поможет вам быстро найти нужную информацию, 
+                создать заявку или перейти к нужному сервису.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px; margin: 0 auto;">
+                <a href="{% url 'create_contract_menu' %}" class="btn btn-primary" style="text-decoration: none; justify-content: center;">
+                    📝 Сформировать договор
+                </a>
+                <a href="{% url 'irbis_menu' %}" class="btn btn-secondary" style="text-decoration: none; justify-content: center;">
+                    🔍 Проверить объект
+                </a>
+                <a href="{% url 'lawyer_menu' %}" class="btn btn-secondary" style="text-decoration: none; justify-content: center;">
+                    ⚖️ Задать вопрос юристу
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title">Чат с помощником</h3>
+        <div style="min-height: 400px; background: var(--bg-secondary); border-radius: 8px; padding: 24px; display: flex; align-items: center; justify-content: center; color: var(--text-muted);">
+            <div style="text-align: center;">
+                <div style="font-size: 48px; margin-bottom: 16px;">💬</div>
+                <p>Чат с AI-помощником будет доступен в ближайшее время</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

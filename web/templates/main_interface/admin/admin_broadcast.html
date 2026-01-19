@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="main-menu">
+
+    <div class="menu-header">
+        <span class="menu-title">{{ page_title }}</span>
+    </div>
+
+
+
+    {% if error %}
+    <div class="menu-row single">
+        <div class="row-text" style="color: red;">
+            {{ error }}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if success %}
+    <div class="menu-row single">
+        <div class="row-text" style="color: green;">
+            {{ success }}
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="menu-row single">
+            <div class="row-text">
+                <label><strong>Тип рассылки:</strong></label>
+                <select name="adtype" class="input full">
+                    <option value="all">Всем пользователям</option>
+                    <option value="paid">Оплатившим</option>
+                    <option value="free">Без доступа</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="menu-row single">
+            <div class="row-text">
+                <label><strong>Текст рассылки:</strong></label>
+                <textarea name="text" rows="4" class="input full" required></textarea>
+            </div>
+        </div>
+
+        <div class="menu-row single">
+            <div class="row-text">
+                <label><strong>Фото (необязательно):</strong></label>
+                <input type="file" name="photo" class="input full" accept="image/*">
+            </div>
+        </div>
+
+        <div class="menu-row single">
+            <button type="submit" class="menu-btn full">
+                Отправить рассылку
+            </button>
+        </div>
+
+    </form>
+    <div class="menu-row single">
+        <a href="{% url 'main_menu' %}" class="menu-btn back full">
+            ⬅ В главное меню
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+    <div class="main-menu" id="booking-container">
+        {% include "main_interface/meeting/meeting_booking_partial.html" %}
+    </div>
+    
+    <script>
+    function loadStep(params) {
+        let url = "{% url 'meeting_booking' %}?" + new URLSearchParams(params).toString();
+        fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('booking-container').innerHTML = html;
+            });
+    }
+
+    document.addEventListener('click', function(e) {
+        const target = e.target.closest('.js-next-step'); // ловим и клики по вложенным элементам
+        if (target) {
+            e.preventDefault();
+            let params = JSON.parse(target.dataset.params);
+            loadStep(params);
+        }
+    });
+    </script>
+{% endblock %}

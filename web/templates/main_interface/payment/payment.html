@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div id="payment-container">
+    {% include "main_interface/payment/payment_partial.html" %}
+</div>
+
+<script>
+let paymentCheckInterval = null;
+
+// Загрузка шага через AJAX
+function loadStep(params) {
+    let url = "{% url 'payment_menu' %}?" + new URLSearchParams(params).toString();
+    fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('payment-container').innerHTML = html;
+
+            // если шаг check_payment — запускаем проверку
+            const statusBlock = document.getElementById('payment-status');
+            if (statusBlock && statusBlock.dataset.paymentId) {
+                startPaymentCheck(statusBlock.dataset.paymentId);
+            }
+        })
+        .catch(err => console.error("Ошибка загрузки шага:", err));
+}
+
+// Фоновая проверка оплаты
+function startPaymentCheck(paymentId) {
+    if (!paymentId) return;
+    if (paymentCheckInterval) clearInterval(paymentCheckInterval);
+
+    const statusBlock = document.getElementById('payment-status');
+    if (!statusBlock) return;
+
+    paymentCheckInterval = setInterval(() => {
+        fetch(`/domosclub/payments/payment_sub_check/${paymentId}`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 1) {
+                    clearInterval(paymentCheckInterval);
+                    statusBlock.innerHTML = '<span style="color:green;font-weight:bold;">✅ Оплата прошла успешно!</span>';
+                } else if (data.status === 0) {
+                    statusBlock.innerHTML = '<span>⏳ Ожидаем оплаты...</span>';
+                } else {
+                    statusBlock.innerHTML = '<span style="color:red;">❌ Платёж не прошёл</span>';
+                }
+            })
+            .catch(err => console.error("Ошибка проверки оплаты:", err));
+    }, 10000);
+}
+
+// Обработка кликов
+document.addEventListener('click', function(e) {
+    const target = e.target.closest('.js-next-step');
+    const payBtn = e.target.closest('.js-pay');
+
+    // обычные шаги
+    if (target) {
+        e.preventDefault();
+        let params = {};
+        if (target.dataset.params) {
+            try { params = JSON.parse(target.dataset.params); }
+            catch (err) { console.warn("Некорректный JSON", err); }
+        }
+
+        const container = target.closest('.main-menu');
+        if (container) {
+            container.querySelectorAll('input').forEach(input => {
+                if (input.name && input.value.trim()) params[input.name] = input.value.trim();
+            });
+        }
+        loadStep(params);
+    }
+
+    // кнопка "Оплатить"
+    if (payBtn) {
+        e.preventDefault();
+
+        let params = {};
+        if (payBtn.dataset.params) {
+            try { params = JSON.parse(payBtn.dataset.params); }
+            catch (err) { console.warn("Некорректный JSON", err); }
+        }
+
+        const paymentLink = payBtn.getAttribute("href");
+        const paymentId = params.payment_id;
+
+        // открыть платёжку в новой вкладке
+        if (paymentLink) window.open(paymentLink, "_blank");
+
+        // перевести на шаг check_payment
+        params.step = "check_payment";
+        loadStep(params);
+    }
+});
+</script>
+{% endblock %}

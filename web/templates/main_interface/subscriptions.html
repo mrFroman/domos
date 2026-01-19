@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1 class="content-title">{{ page_title }}</h1>
+    <p class="content-subtitle">{{ page_subtitle }}</p>
+</div>
+
+<div class="content-body">
+    <div class="card">
+        <h3 class="card-title">Активная подписка</h3>
+        {% if pay_status == 1 %}
+            <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="color: var(--text-secondary);">Статус:</span>
+                    <span style="color: #4caf50; font-weight: 600;">✓ Активна</span>
+                </div>
+                {% if end_pay %}
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary);">Действует до:</span>
+                    <span style="color: var(--text-primary); font-weight: 600;">{{ end_pay }}</span>
+                </div>
+                {% endif %}
+            </div>
+            <a href="{% url 'payment_menu' %}" class="btn btn-primary" style="text-decoration: none; display: inline-block;">
+                💳 Продлить подписку
+            </a>
+        {% else %}
+            <div style="padding: 20px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-secondary);">Статус:</span>
+                    <span style="color: #ff6b6b; font-weight: 600;">✗ Неактивна</span>
+                </div>
+            </div>
+            <a href="{% url 'payment_menu' %}" class="btn btn-primary" style="text-decoration: none; display: inline-block;">
+                💳 Оформить подписку
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h3 class="card-title">Что включено в подписку</h3>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                <span style="font-size: 20px;">✓</span>
+                <span>Доступ к формированию договоров</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                <span style="font-size: 20px;">✓</span>
+                <span>Консультации юриста</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                <span style="font-size: 20px;">✓</span>
+                <span>Проверка объектов в IRBIS</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                <span style="font-size: 20px;">✓</span>
+                <span>Бронирование переговорных комнат</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="card-title">История платежей</h3>
+        <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+            История платежей будет отображаться здесь
+        </div>
+    </div>
+</div>
+{% endblock %}
