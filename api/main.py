@@ -20,6 +20,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from bot.tgbot.handlers.payment_irbis import (
     genPaymentYookassa_Irbis,
     checkPaymentYookassa,
+    check_type_keyboard,
 )
 from bot.tgbot.databases.pay_db import sendLogToUser
 from config import (
@@ -141,10 +142,16 @@ def init_db():
                 data_json TEXT,
                 signal INTEGER,
                 payment_status BOOLEAN DEFAULT 0,
+                payment_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-            """
+        """
         )
+        # Добавляем колонку payment_id если её нет
+        try:
+            conn.execute("ALTER TABLE tokens ADD COLUMN payment_id TEXT")
+        except sqlite3.OperationalError:
+            pass  # Колонка уже существует
         conn.commit()
 
 
@@ -511,22 +518,186 @@ def wait_advert_payment_signal(user_id, payment_id):
 @app.post("/api/create_advert_payment")
 async def create_payment(request: Request, background_tasks: BackgroundTasks):
     data = await request.json()
-    price = str(data.get("price", 0))
-    price = "".join([price, ".00"])
-
     user_id = str(data.get("user_id", ""))
+    
+    # Для пользователя 779889025 всегда цена 1 рубль
+    if user_id == "779889025" or user_id == 779889025:
+        price = "1.00"
+    else:
+        price = str(data.get("price", 0))
+        price = "".join([price, ".00"])
 
     try:
-
+        # Сохраняем payment_id в БД для связи с пользователем
         payment_id, payment_url = genPaymentYookassa_Irbis(
-            price,
+            price=price,
             description="Оплата рекламы",
+            purpose="advert_payment",
+            user_id=user_id,
         )
-        background_tasks.add_task(wait_advert_payment_signal, user_id, payment_id)
+        # Сохраняем payment_id в БД для связи с пользователем
+        with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+            conn.execute(
+                "UPDATE tokens SET payment_id = ? WHERE user_id = ?",
+                (payment_id, user_id),
+            )
+            conn.commit()
+        # Убираем polling - теперь используем webhook
+        # background_tasks.add_task(wait_advert_payment_signal, user_id, payment_id)
         return JSONResponse({"success": True, "payment_url": payment_url})
     except Exception as e:
         logger_api.error(f"Ошибка создания платежа: {e}")
         return JSONResponse({"success": False, "error": str(e)})
+
+
+@app.post("/api/yookassa_webhook")
+async def yookassa_webhook(request: Request):
+    """Webhook для обработки платежей YooKassa"""
+    client_ip = request.client.host if request.client else "unknown"
+    logger_api.info(f"Получен POST запрос на /api/yookassa_webhook от {client_ip}")
+
+    try:
+        data = await request.json()
+        logger_api.info(f"YooKassa webhook data: {data}")
+    except Exception as e:
+        logger_api.error(f"Ошибка парсинга JSON от YooKassa: {e}")
+        return PlainTextResponse("Bad Request", status_code=400)
+
+    # Проверяем тип события
+    event_type = data.get("event")
+    payment_object = data.get("object", {})
+
+    if not event_type or not payment_object:
+        logger_api.warning(f"Неполные данные от YooKassa: event={event_type}")
+        return PlainTextResponse("OK", status_code=200)
+
+    payment_id = payment_object.get("id")
+    status = payment_object.get("status")
+    metadata = payment_object.get("metadata", {})
+    purpose = metadata.get("purpose", "")
+    user_id = metadata.get("user_id")
+
+    logger_api.info(
+        f"YooKassa webhook: event={event_type}, payment_id={payment_id}, "
+        f"status={status}, purpose={purpose}, user_id={user_id}"
+    )
+
+    # Обрабатываем разные типы событий
+    if event_type == "payment.succeeded":
+        if purpose == "advert_payment":
+            # Обработка успешной оплаты рекламы
+            if user_id:
+                try:
+                    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+                        conn.execute(
+                            "UPDATE tokens SET payment_status = ? WHERE user_id = ?",
+                            (1, user_id),
+                        )
+                        conn.commit()
+                    logger_api.info(
+                        f"✅ Оплата рекламы прошла успешно! payment_id={payment_id}, user_id={user_id}"
+                    )
+                    sendLogToUser(
+                        text="✅ Оплата заявки на рекламу прошла успешно!",
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    logger_api.error(f"Ошибка при обновлении статуса оплаты рекламы: {e}")
+
+        elif purpose == "irbis_check":
+            # Обработка успешной оплаты проверки IRBIS
+            # Если user_id нет в metadata, пытаемся найти его в БД
+            if not user_id:
+                try:
+                    with sqlite3.connect(MAIN_DB_PATH) as conn:
+                        cursor = conn.execute(
+                            "SELECT user_id FROM payments WHERE payment_id = ?",
+                            (payment_id,),
+                        )
+                        row = cursor.fetchone()
+                        if row:
+                            user_id = str(row[0])
+                except Exception as e:
+                    logger_api.error(f"Ошибка при поиске user_id по payment_id: {e}")
+            
+            if user_id:
+                try:
+                    # Обновляем статус платежа в основной БД
+                    with sqlite3.connect(MAIN_DB_PATH) as conn:
+                        conn.execute(
+                            "UPDATE payments SET status = 1 WHERE payment_id = ?",
+                            (payment_id,),
+                        )
+                        conn.commit()
+                    logger_api.info(
+                        f"✅ Оплата IRBIS прошла успешно! payment_id={payment_id}, user_id={user_id}"
+                    )
+                    # Отправляем первое сообщение
+                    sendLogToUser(
+                        text="✅ Оплата прошла успешно! Доступ к IRBIS открыт.",
+                        user_id=user_id,
+                    )
+                    # Отправляем второе сообщение с клавиатурой
+                    # Создаем клавиатуру для выбора типа проверки
+                    keyboard_markup = {
+                        "inline_keyboard": [
+                            [{"text": "🏢 Юр. лицо", "callback_data": "check_jur"}],
+                            [{"text": "👤 Физ. лицо", "callback_data": "check_fiz"}],
+                            [{"text": "🏠 Недвижимость", "callback_data": "check_realty"}],
+                        ]
+                    }
+                    keyboard_json = json.dumps(keyboard_markup)
+                    requests.get(
+                        f'https://api.telegram.org/bot{BOT_TOKEN}/sendMessage',
+                        params={
+                            'chat_id': user_id,
+                            'text': 'Выберите, кого вы хотите проверить:',
+                            'reply_markup': keyboard_json,
+                        }
+                    )
+                except Exception as e:
+                    logger_api.error(f"Ошибка при обновлении статуса оплаты IRBIS: {e}")
+
+    elif event_type == "payment.canceled":
+        if purpose == "advert_payment":
+            # Обработка отмены оплаты рекламы
+            if user_id:
+                try:
+                    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
+                        conn.execute(
+                            "UPDATE tokens SET payment_status = ? WHERE user_id = ?",
+                            (0, user_id),
+                        )
+                        conn.commit()
+                    logger_api.error(
+                        f"❌ Оплата рекламы отменена. payment_id={payment_id}, user_id={user_id}"
+                    )
+                    sendLogToUser(
+                        text="❌ Оплата заявки на рекламу отменена!",
+                        user_id=user_id,
+                    )
+                except Exception as e:
+                    logger_api.error(f"Ошибка при обновлении статуса отмены рекламы: {e}")
+
+        elif purpose == "irbis_check":
+            # Обработка отмены оплаты IRBIS
+            if user_id:
+                logger_api.error(
+                    f"❌ Оплата IRBIS отменена. payment_id={payment_id}, user_id={user_id}"
+                )
+                sendLogToUser(
+                    text="❌ Оплата проверки IRBIS отменена!",
+                    user_id=user_id,
+                )
+
+    elif event_type == "payment.waiting_for_capture":
+        logger_api.info(f"Платеж ожидает подтверждения: payment_id={payment_id}")
+
+    elif event_type == "refund.succeeded":
+        logger_api.info(f"Возврат успешно выполнен: payment_id={payment_id}")
+
+    # Всегда возвращаем 200 OK для YooKassa
+    return PlainTextResponse("OK", status_code=200)
 
 
 @app.post("/tinkoff_payment_webhook/")

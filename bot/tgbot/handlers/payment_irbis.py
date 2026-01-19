@@ -44,19 +44,22 @@ def irbis_pay_keyboard(payment_link):
 
 
 # Генерация платежа
-def genPaymentYookassa_Irbis(price="200.00", description="Проверка Irbis"):
+def genPaymentYookassa_Irbis(price="200.00", description="Проверка Irbis", purpose="irbis_check", user_id=None):
     price = price
     bot_username = "DomosproBot"  # <--- укажи свой username
     return_url = f"https://t.me/{bot_username}"
+    metadata = {
+        "purpose": purpose,
+    }
+    if user_id:
+        metadata["user_id"] = str(user_id)
     res = Payment.create(
         {
             "amount": {"value": price, "currency": "RUB"},
             "confirmation": {"type": "redirect", "return_url": return_url},
             "capture": True,
             "description": description,
-            "metadata": {
-                "purpose": "irbis_check",
-            },
+            "metadata": metadata,
             "receipt": {
                 "customer": {
                     "full_name": "Покупатель Irbis",
@@ -94,7 +97,8 @@ def cancelPaymentYookassa(id):
 
 
 async def wait_for_payment(payment_id, cb: CallbackQuery):
-    logger_bot.info(f"Проверяем платёж с payment_id={payment_id}")
+    """Устаревшая функция - теперь используем webhook от YooKassa"""
+    logger_bot.info(f"Проверяем платёж с payment_id={payment_id} (одноразовая проверка)")
     status = checkPaymentYookassa(payment_id)
     if status == "succeeded":
         logger_bot.info("✅ Оплата прошла успешно! Доступ к IRBIS открыт.")
@@ -104,8 +108,10 @@ async def wait_for_payment(payment_id, cb: CallbackQuery):
         )
         return
     else:
-        logger_bot.error(f"❌ Оплата платежа: {payment_id} ещё не прошла.")
-        await cb.message.answer("❌ Оплата ещё не прошла, попробуйте чуть позже.")
+        logger_bot.info(f"⏳ Платеж ещё обрабатывается. Уведомление придёт автоматически после успешной оплаты.")
+        await cb.message.answer(
+            "⏳ Платеж ещё обрабатывается. Уведомление придёт автоматически после успешной оплаты."
+        )
 
 
 # Хэндлер /irbis
@@ -134,9 +140,9 @@ async def irbis_command(update: Union[Message, CallbackQuery], state: FSMContext
                 )
             else:
                 if user_id == "779889025" or user_id == 779889025:
-                    payment_id, payment_link = genPaymentYookassa_Irbis(price="1.00")
+                    payment_id, payment_link = genPaymentYookassa_Irbis(price="1.00", purpose="irbis_check", user_id=user_id)
                 else:
-                    payment_id, payment_link = genPaymentYookassa_Irbis()
+                    payment_id, payment_link = genPaymentYookassa_Irbis(purpose="irbis_check", user_id=user_id)
                 createPayment(payment_id, 200, message.from_user.id)
                 await state.update_data(payment_id=payment_id)
 
