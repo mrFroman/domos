@@ -35,11 +35,6 @@ def check_type_keyboard():
 def irbis_pay_keyboard(payment_link):
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton("💳 Оплатить 200 руб", url=payment_link))
-    markup.add(
-        InlineKeyboardButton(
-            "Подтвердить оплату", callback_data="confirm_irbis_payment"
-        )
-    )
     return markup
 
 
@@ -148,8 +143,8 @@ async def irbis_command(update: Union[Message, CallbackQuery], state: FSMContext
 
                 await message.answer(
                     "💡 <b>Стоимость одной проверки — 200 руб</b>.\n\n"
-                    "Нажмите кнопку «Оплатить 200 руб.»,,\n"
-                    "а затем подтвердите оплату.",
+                    "Нажмите кнопку «Оплатить 200 руб.» для оплаты.\n"
+                    "После успешной оплаты вы получите уведомление автоматически.",
                     reply_markup=irbis_pay_keyboard(payment_link),
                     parse_mode="HTML",
                 )
@@ -158,16 +153,6 @@ async def irbis_command(update: Union[Message, CallbackQuery], state: FSMContext
                 )
         else:
             await message.answer("⭕ Сначала оплатите подписку!")
-
-
-async def confirm_payment_irbis(cb: types.CallbackQuery, state: FSMContext):
-    data = await state.get_data()
-    payment_id = data.get("payment_id")
-    if not payment_id:
-        logger_bot.error(f"❌ Платёж пользователя: {cb.from_user.id} не найден.")
-        await cb.message.answer("❌ Не найден платеж. Попробуйте ещё раз.")
-        return
-    asyncio.create_task(wait_for_payment(payment_id, cb))
 
 
 async def handle_check_jur(call: types.CallbackQuery):
@@ -229,9 +214,4 @@ def register_irbis(dp: Dispatcher):
     )
     dp.register_callback_query_handler(
         handle_check_realty, lambda c: c.data == "check_realty", state="*"
-    )
-    dp.register_callback_query_handler(
-        confirm_payment_irbis,
-        lambda c: c.data == "confirm_irbis_payment",
-        state="*",
     )
