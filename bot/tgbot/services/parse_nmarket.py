@@ -1,5 +1,4 @@
 import random
-import sqlite3
 import sys
 import subprocess
 import time
@@ -11,7 +10,7 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 from playwright.sync_api import Browser, Page, sync_playwright
-
+from bot.tgbot.databases.database import DatabaseConnection
 
 LOGIN_NMARKET = os.getenv("LOGIN_NMARKET", "user")
 PASSWORD_NMARKET = os.getenv("PASSWORD_NMARKET", "password")
@@ -20,11 +19,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = os.path.join(BASE_DIR, "databases", "nmarket.db")
 
 
-def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
-    """Создаёт таблицы и открывает соединение с БД."""
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute("""
+def init_db(db_path: str = DB_PATH):
+    """Создаёт таблицы в БД."""
+    # Для nmarket.db используем SQLite напрямую, так как это отдельная база
+    # Но используем DatabaseConnection для единообразия
+    db = DatabaseConnection(db_path, schema=None)
+    
+    # Создаем таблицу complexes
+    db.execute("""
         CREATE TABLE IF NOT EXISTS complexes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             url TEXT UNIQUE,
@@ -49,7 +51,9 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
             contact_email TEXT
         )
     """)
-    cur.execute("""
+    
+    # Создаем таблицу units
+    db.execute("""
         CREATE TABLE IF NOT EXISTS units (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             complex_id INTEGER,
@@ -68,8 +72,8 @@ def init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
             FOREIGN KEY(complex_id) REFERENCES complexes(id)
         )
     """)
-    conn.commit()
-    return conn
+    
+    return db
 
 
 def ensure_chromium_installed():
@@ -328,76 +332,83 @@ def parse_complex(page: Page, complex_url: str
     return general_info, units
 
 
-def save_to_db(conn: sqlite3.Connection,
+def save_to_db(db: DatabaseConnection,
                general: Dict[str, Optional[str]],
                units: List[Dict[str, Optional[str]]]) -> None:
     """Сохраняет данные ЖК и квартир в БД."""
-    cur = conn.cursor()
-    cur.execute("""
+    # Используем named parameters для совместимости
+    # Для SQLite используем ? или named parameters, для PostgreSQL - %s
+    # DatabaseConnection автоматически адаптирует запросы
+    
+    # Вставляем или обновляем комплекс
+    # Для SQLite используем ON CONFLICT, для PostgreSQL - ON CONFLICT или отдельный UPDATE
+    db.execute("""
         INSERT INTO complexes (
             url, name, address, developer, floor_count, status, key_issue,
             parking, ceiling_height, finishing, contract_type, building_type,
             registration, payment_options, units_total,
             description, advantages, contact_name, contact_phone, contact_email
         ) VALUES (
-            :url, :name, :address, :developer, :floor_count, :status, :key_issue,
-            :parking, :ceiling_height, :finishing, :contract_type, :building_type,
-            :registration, :payment_options, :units_total,
-            :description, :advantages, :contact_name, :contact_phone, :contact_email
-        ) ON CONFLICT(url) DO UPDATE SET
-            name=excluded.name,
-            address=excluded.address,
-            developer=excluded.developer,
-            floor_count=excluded.floor_count,
-            status=excluded.status,
-            key_issue=excluded.key_issue,
-            parking=excluded.parking,
-            ceiling_height=excluded.ceiling_height,
-            finishing=excluded.finishing,
-            contract_type=excluded.contract_type,
-            building_type=excluded.building_type,
-            registration=excluded.registration,
-            payment_options=excluded.payment_options,
-            units_total=excluded.units_total,
-            description=excluded.description,
-            advantages=excluded.advantages,
-            contact_name=excluded.contact_name,
-            contact_phone=excluded.contact_phone,
-            contact_email=excluded.contact_email
-    """, general)
-    complex_id = cur.execute(
-        "SELECT id FROM complexes WHERE url = ?", (general["url"],)
-    ).fetchone()[0]
+            %s, %s, %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s,
+            %s, %s, %s,
+            %s, %s, %s, %s, %s
+        )
+    """, (
+        general.get("url"), general.get("name"), general.get("address"), 
+        general.get("developer"), general.get("floor_count"), general.get("status"), 
+        general.get("key_issue"), general.get("parking"), general.get("ceiling_height"),
+        general.get("finishing"), general.get("contract_type"), general.get("building_type"),
+        general.get("registration"), general.get("payment_options"), general.get("units_total"),
+        general.get("description"), general.get("advantages"), general.get("contact_name"),
+        general.get("contact_phone"), general.get("contact_email")
+    ))
+    
+    # Получаем complex_id
+    result = db.fetchone("SELECT id FROM complexes WHERE url = %s", (general["url"],))
+    if result:
+        if isinstance(result, dict):
+            complex_id = result.get('id')
+        else:
+            complex_id = result[0] if result else None
+    else:
+        # Если не нашли, значит была ошибка вставки
+        return
 
-    cur.execute("DELETE FROM units WHERE complex_id = ?", (complex_id,))
+    # Удаляем старые units
+    db.execute("DELETE FROM units WHERE complex_id = %s", (complex_id,))
+    
+    # Вставляем новые units
     for unit in units:
-        unit["complex_id"] = complex_id
-        cur.execute("""
+        db.execute("""
             INSERT INTO units (
                 complex_id, unit_type, building, section, floor, apartment_number,
                 finishing, total_area, living_area, kitchen_area, price_per_m2,
                 price_full, price_base
             ) VALUES (
-                :complex_id, :unit_type, :building, :section, :floor,
-                :apartment_number, :finishing, :total_area, :living_area,
-                :kitchen_area, :price_per_m2, :price_full, :price_base
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
-        """, unit)
+        """, (
+            complex_id, unit.get("unit_type"), unit.get("building"), 
+            unit.get("section"), unit.get("floor"), unit.get("apartment_number"),
+            unit.get("finishing"), unit.get("total_area"), unit.get("living_area"),
+            unit.get("kitchen_area"), unit.get("price_per_m2"), unit.get("price_full"),
+            unit.get("price_base")
+        ))
 
-    cur.execute("""
+    # Обновляем units_total
+    db.execute("""
         UPDATE complexes
         SET units_total = (
-            SELECT COUNT(*) FROM units WHERE complex_id = ?
+            SELECT COUNT(*) FROM units WHERE complex_id = %s
         )
-        WHERE id = ?
+        WHERE id = %s
     """, (complex_id, complex_id))
-
-    conn.commit()
 
 
 def main(username: str, password: str) -> None:
     """Точка входа."""
-    conn = init_db()
+    db = init_db()
     ensure_chromium_installed()
     with sync_playwright() as p:
         browser: Browser = p.chromium.launch(headless=True)
@@ -415,7 +426,7 @@ def main(username: str, password: str) -> None:
             time.sleep(random.uniform(1, 3))
             try:
                 general, units = parse_complex(page, url)
-                save_to_db(conn, general, units)
+                save_to_db(db, general, units)
                 print(f"Данные для «{general.get('name', url)}» сохранены.")
                 time.sleep(random.uniform(1, 2))
             except Exception as e:
@@ -423,7 +434,6 @@ def main(username: str, password: str) -> None:
                 continue
         print("Парсинг завершён.")
         browser.close()
-    conn.close()
 
 if __name__ == "__main__":
     try:

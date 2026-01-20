@@ -1,6 +1,5 @@
 import os
 import json
-import sqlite3
 from datetime import datetime
 
 import gspread
@@ -9,11 +8,13 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 from bot.tgbot.databases.pay_db import get_user_by_user_id
+from bot.tgbot.databases.database import get_db_connection
 from config import (
     BASE_DIR,
     MAIN_DB_PATH,
     ADVERT_TOKENS_DB_PATH,
     ADVERT_POSITIONS_FILE,
+    DB_TYPE,
     logger_bot,
 )
 
@@ -36,13 +37,9 @@ scope = [
 
 
 def getUnpaids():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    usernames = (
-        sqlite_connection.cursor()
-        .execute("SELECT fullName FROM users WHERE pay_status = 0")
-        .fetchall()
-    )
-    sqlite_connection.close()
+    """Получает список неоплативших пользователей"""
+    db = get_db_connection(MAIN_DB_PATH, schema="main")
+    usernames = db.fetchall("SELECT fullName FROM users WHERE pay_status = 0")
     return usernames
 
 
@@ -82,23 +79,37 @@ def create_excel():
 
 
 def getpaids():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = """
-    SELECT
-        full_name,
-        fullName,
-        strftime('%d-%m-%Y %H:%M', datetime(last_pay, 'unixepoch')) as last_pay,
-        strftime('%d-%m-%Y %H:%M', datetime(end_pay, 'unixepoch')) as end_pay
-    FROM
-        users
-    WHERE
-        pay_status = 1
-    ORDER BY
-        last_pay ASC
-    """
-
-    result = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.close()
+    """Получает список оплативших пользователей"""
+    db = get_db_connection(MAIN_DB_PATH, schema="main")
+    if DB_TYPE == "postgres":
+        query = """
+        SELECT
+            full_name,
+            fullName,
+            TO_CHAR(TO_TIMESTAMP(last_pay), 'DD-MM-YYYY HH24:MI') as last_pay,
+            TO_CHAR(TO_TIMESTAMP(end_pay), 'DD-MM-YYYY HH24:MI') as end_pay
+        FROM
+            users
+        WHERE
+            pay_status = 1
+        ORDER BY
+            last_pay ASC
+        """
+    else:
+        query = """
+        SELECT
+            full_name,
+            fullName,
+            strftime('%%d-%%m-%%Y %%H:%%M', datetime(last_pay, 'unixepoch')) as last_pay,
+            strftime('%%d-%%m-%%Y %%H:%%M', datetime(end_pay, 'unixepoch')) as end_pay
+        FROM
+            users
+        WHERE
+            pay_status = 1
+        ORDER BY
+            last_pay ASC
+        """
+    result = db.fetchall(query)
     return result
 
 
@@ -149,24 +160,39 @@ def create_excel1():
 
 
 def get_lawyer_requests():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = """
-    SELECT 
-        strftime('%d-%m-%Y %H:%M', request_date) as formatted_date,
-        request_text,
-        user_full_name,
-        user_username
-    FROM 
-        requests 
-    WHERE 
-        request_type = 'lawyer'
-        AND request_date >= datetime('now', '-2 months')
-    ORDER BY 
-        request_date DESC
-    """
-
-    result = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.close()
+    """Получает запросы юриста за последние 2 месяца"""
+    db = get_db_connection(MAIN_DB_PATH, schema="main")
+    if DB_TYPE == "postgres":
+        query = """
+        SELECT 
+            TO_CHAR(request_date, 'DD-MM-YYYY HH24:MI') as formatted_date,
+            request_text,
+            user_full_name,
+            user_username
+        FROM 
+            requests 
+        WHERE 
+            request_type = 'lawyer'
+            AND request_date >= NOW() - INTERVAL '2 months'
+        ORDER BY 
+            request_date DESC
+        """
+    else:
+        query = """
+        SELECT 
+            strftime('%%d-%%m-%%Y %%H:%%M', request_date) as formatted_date,
+            request_text,
+            user_full_name,
+            user_username
+        FROM 
+            requests 
+        WHERE 
+            request_type = 'lawyer'
+            AND request_date >= datetime('now', '-2 months')
+        ORDER BY 
+            request_date DESC
+        """
+    result = db.fetchall(query)
     return result
 
 
@@ -220,43 +246,56 @@ def load_positions():
 
 
 def get_advert_requests():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = """
-    SELECT
-        strftime('%d-%m-%Y %H:%M', request_date) as formatted_date,
-        request_text,
-        user_full_name,
-        user_username
-    FROM
-        requests
-    WHERE
-        request_type = 'advert'
-        AND request_date >= datetime('now', '-2 months')
-    ORDER BY
-        request_date DESC
-    """
-
-    result = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.close()
+    """Получает запросы на рекламу за последние 2 месяца"""
+    db = get_db_connection(MAIN_DB_PATH, schema="main")
+    if DB_TYPE == "postgres":
+        query = """
+        SELECT
+            TO_CHAR(request_date, 'DD-MM-YYYY HH24:MI') as formatted_date,
+            request_text,
+            user_full_name,
+            user_username
+        FROM
+            requests
+        WHERE
+            request_type = 'advert'
+            AND request_date >= NOW() - INTERVAL '2 months'
+        ORDER BY
+            request_date DESC
+        """
+    else:
+        query = """
+        SELECT
+            strftime('%%d-%%m-%%Y %%H:%%M', request_date) as formatted_date,
+            request_text,
+            user_full_name,
+            user_username
+        FROM
+            requests
+        WHERE
+            request_type = 'advert'
+            AND request_date >= datetime('now', '-2 months')
+        ORDER BY
+            request_date DESC
+        """
+    result = db.fetchall(query)
     return result
 
 
 def get_advert_requests_new():
     """Получаем оплаченные объявления из таблицы tokens"""
-    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            SELECT
-                created_at,
-                user_id,
-                data_json
-            FROM tokens
-            WHERE payment_status = 1
-            ORDER BY created_at DESC
-            """
-        )
-        result = cur.fetchall()
+    db = get_db_connection(ADVERT_TOKENS_DB_PATH, schema="advert")
+    result = db.fetchall(
+        """
+        SELECT
+            created_at,
+            user_id,
+            data_json
+        FROM tokens
+        WHERE payment_status = 1
+        ORDER BY created_at DESC
+        """
+    )
     return result
 
 
@@ -352,7 +391,8 @@ def create_excel_advert_new():
     records = get_advert_requests_new()
 
     # TODO Тут можно вручную изменить дату формирования отчёт
-    target_date = datetime(2025, 12, 18, 19, 0, 0)
+    target_date = datetime(2026, 1, 19, 19, 0, 0)
+    #target_date = datetime.today()
     for row in records:
         created_at, user_id, data_json_str = row
         created_at_dt = datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")

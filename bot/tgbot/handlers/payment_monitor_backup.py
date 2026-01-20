@@ -1,16 +1,14 @@
-import sqlite3
 import time
 import datetime
 import requests
 import hashlib
-from pathlib import Path
-path = str(Path(__file__).parents[2])
+
+from bot.tgbot.databases.database import DatabaseConnection
+from config import MAIN_DB_PATH
+
 # Настройки Тинькофф
 TERMINAL_KEY = '1741778432520'
 SECRET_KEY = "_AMRg%%S%W2eM&e9"
-
-# Путь к базе данных
-users_db_path = f'{path}/tgbot/databases/data.db'
 
 # Лог отправки в Telegram
 
@@ -38,26 +36,38 @@ def checkPaymentTinkoff(payment_id):
     return data.get('Status', 'UNKNOWN')
 
 def getPayment(id):
-    sqlite_connection = sqlite3.connect(users_db_path)
-    info = sqlite_connection.cursor().execute("SELECT * FROM payments WHERE payment_id = ?", (id,)).fetchone()
-    sqlite_connection.commit()
-    sqlite_connection.close()
-    user_id = info[0]
-    amount = int(info[2])
-    created = int(info[3])
-    status = int(info[4])
-    return user_id, amount, created, status
+    """Получает информацию о платеже"""
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone("SELECT * FROM payments WHERE payment_id = %s", (id,))
+    if info:
+        if isinstance(info, dict):
+            user_id = info.get('user_id', '')
+            amount = int(info.get('amount', 0))
+            created = int(info.get('created', 0))
+            status = int(info.get('status', 0))
+        else:
+            user_id = info[0] if len(info) > 0 else ''
+            amount = int(info[2]) if len(info) > 2 else 0
+            created = int(info[3]) if len(info) > 3 else 0
+            status = int(info[4]) if len(info) > 4 else 0
+        return user_id, amount, created, status
+    return '', 0, 0, 0
 
 def makePaymentCompleted(id):
+    """Отмечает платеж как завершенный и обновляет подписку"""
     user_id, amount, created, status = getPayment(id)
-    sqlite_connection = sqlite3.connect(users_db_path)
-    cur = sqlite_connection.cursor()
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     now_ts = int(time.time())
     
     # Получаем текущую дату окончания подписки пользователя
-    cur.execute('SELECT end_pay FROM users WHERE user_id = ?', (user_id,))
-    result = cur.fetchone()
-    current_end_pay = result[0] if result else None
+    result = db.fetchone('SELECT end_pay FROM users WHERE user_id = %s', (user_id,))
+    if result:
+        if isinstance(result, dict):
+            current_end_pay = result.get('end_pay', 0)
+        else:
+            current_end_pay = result[0] if result[0] else None
+    else:
+        current_end_pay = None
     
     if current_end_pay and current_end_pay > now_ts:
         # Если подписка активна — продлеваем от текущей end_pay (+срок в зависимости от суммы)
@@ -95,35 +105,38 @@ def makePaymentCompleted(id):
     timestamp2 = int(time.mktime(t.timetuple()))
     
     if status == 0:
-        cur.execute('UPDATE payments SET status = 1 WHERE payment_id = ?', (id,))
-        cur.execute('UPDATE users SET last_pay = ? WHERE user_id = ?', (now_ts, user_id,))
-        cur.execute('UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp2, user_id,))
-        cur.execute('UPDATE users SET pay_status = 1 WHERE user_id = ?', (user_id,))
-        sqlite_connection.commit()
-    
-    sqlite_connection.close()
+        db.execute('UPDATE payments SET status = 1 WHERE payment_id = %s', (id,))
+        db.execute('UPDATE users SET last_pay = %s WHERE user_id = %s', (now_ts, user_id,))
+        db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp2, user_id,))
+        db.execute('UPDATE users SET pay_status = 1 WHERE user_id = %s', (user_id,))
 
 def newMonitoring():
+    """Мониторинг платежей (backup версия)"""
     while True:
         time.sleep(10)
-        connection = sqlite3.connect(users_db_path)
-        cur = connection.cursor()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
         now_ts = int(time.time())
-        data = cur.execute('SELECT * FROM payments WHERE status = 0 ORDER BY ts DESC').fetchall()
+        data = db.fetchall('SELECT * FROM payments WHERE status = 0 ORDER BY ts DESC')
         data = data[:100]
-        connection.close()
         
         for i in data:
             try:
-                payment_id = i[1]
+                if isinstance(i, dict):
+                    user_id = i.get('user_id', '')
+                    payment_id = i.get('payment_id', '')
+                    created = int(i.get('created', 0))
+                else:
+                    user_id = i[0] if len(i) > 0 else ''
+                    payment_id = i[1] if len(i) > 1 else ''
+                    created = int(i[3]) if len(i) > 3 else 0
+                
                 result = checkPaymentTinkoff(payment_id)
-                created = int(i[3])
                 #print(result)
                 if result == 'CONFIRMED':
                     makePaymentCompleted(payment_id)
                     print("✅ Оплата прошла")
 
-                    sendLogToUser('<b>✅ Успешно оплачено</b>\nНажмите -                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ', i[0])
+                    sendLogToUser('<b>✅ Успешно оплачено</b>\nНажмите - /start', user_id)
                     sendLogToUser('''<b>Территория свободы риелторов ДОМОС CLUB приветствует тебя!</b>
 По подключению к нашим системам, настройкам доступов и личных кабинетов тебе поможет – Ирина Гурдуза, @Irina_Domos +79193747077 
 
@@ -147,28 +160,20 @@ def newMonitoring():
 https://vk.com/domosclub
 https://www.instagram.com/domos.top
 Наш сайт: domos.club
-Телеграмм канал с эфирами обучений: https://t.me/+Cbrhm0SoPHxlNGZi''', i[0])
+Телеграмм канал с эфирами обучений: https://t.me/+Cbrhm0SoPHxlNGZi''', user_id)
 
                 elif result in ['REJECTED', 'CANCELED', 'DEADLINE_EXPIRED']:
                     # Если платёж явно не прошёл — удаляем
-                    connection = sqlite3.connect(users_db_path)
-                    cur = connection.cursor()
-                    cur.execute('DELETE FROM payments WHERE payment_id = ?', (payment_id,))
-                    connection.commit()
-                    connection.close()
+                    db.execute('DELETE FROM payments WHERE payment_id = %s', (payment_id,))
 
-                    sendLogToUser('<b>❌ Оплата была отменена или отклонена</b>\nПопробуйте снова — /start', i[0])
+                    sendLogToUser('<b>❌ Оплата была отменена или отклонена</b>\nПопробуйте снова — /start', user_id)
                     print(f"⛔ Неуспешная оплата {payment_id} — удалена")
 
                 elif created + 1800 < now_ts:
                     # Если просто вышло время ожидания (30 минут)
-                    connection = sqlite3.connect(users_db_path)
-                    cur = connection.cursor()
-                    cur.execute('DELETE FROM payments WHERE payment_id = ?', (payment_id,))
-                    connection.commit()
-                    connection.close()
+                    db.execute('DELETE FROM payments WHERE payment_id = %s', (payment_id,))
 
-                    sendLogToUser('<b>❌ Время на оплату истекло</b>\nПопробуйте снова — /start', i[0])
+                    sendLogToUser('<b>❌ Время на оплату истекло</b>\nПопробуйте снова — /start', user_id)
                     print(f"⌛ Истекло время оплаты — {payment_id} удалена")
                 
             except Exception as e:

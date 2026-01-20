@@ -1,11 +1,13 @@
 import asyncio
 import os
-import sqlite3
 import logging
 from aiogram import Bot, types
 from aiogram.utils.exceptions import Unauthorized, BadRequest
 from pathlib import Path
 from dotenv import load_dotenv
+
+from bot.tgbot.databases.database import AsyncDatabaseConnection
+from config import MAIN_DB_PATH
 
 path = str(Path(__file__).parents[2])
 
@@ -14,7 +16,6 @@ load_dotenv()
 # --- Настройки ---
 API_TOKEN = os.getenv("BOT_TOKEN")  # 🔁 Заменить на токен бота
 CHANNEL_ID = int(os.getenv("PAID_CHANNEL"))   # 🔁 Заменить на ID канала (НЕ ссылку!)
-DB_PATH = f'{path}/tgbot/databases/data.db'
 
 NOTIFY_TEXT = (
     "Дорогой друг!\n\n"
@@ -33,15 +34,21 @@ async def send_subscription_reminders():
 
     try:
         # Подключение к БД
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
+        db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
 
         # Получаем пользователей с активной подпиской
-        cursor.execute("SELECT user_id FROM users WHERE pay_status = 1")
-        users = cursor.fetchall()
+        users = await db.fetchall("SELECT user_id FROM users WHERE pay_status = 1")
         logging.info(f"Найдено активных пользователей: {len(users)}")
 
-        for (user_id,) in users:
+        for user_row in users:
+            if isinstance(user_row, dict):
+                user_id = user_row.get('user_id')
+            else:
+                user_id = user_row[0] if user_row else None
+            
+            if not user_id:
+                continue
+                
             try:
                 # Проверка подписки
                 member = await bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id)
@@ -57,8 +64,6 @@ async def send_subscription_reminders():
                         logging.error(f"BadRequest при отправке пользователю {user_id}: {e}")
             except Exception as e:
                 logging.error(f"Ошибка при проверке подписки для {user_id}: {e}")
-
-        conn.close()
 
     finally:
         await bot.session.close()

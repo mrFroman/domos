@@ -1,5 +1,4 @@
 import os
-import sqlite3
 
 from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
@@ -10,6 +9,7 @@ from openai import AsyncOpenAI
 
 from bot.tgbot.keyboards.inline import mainmenu_btn, mainmenu_mk, request_from_db_keyboard
 from bot.tgbot.databases.pay_db import getBannedUserId, changeUsername, checkUserExists, regUser
+from bot.tgbot.databases.database import DatabaseConnection
 
 # Загрузка переменных окружения
 from dotenv import load_dotenv
@@ -359,13 +359,10 @@ async def paginate_apartments(callback: CallbackQuery, state: FSMContext):
 
 
 async def request_info_func(message, state):
-
+    """Обработка запроса информации из базы лекций"""
     # 1. Загружаем лекции
-    conn = sqlite3.connect(DB_PATH_AUDIO)
-    cur = conn.cursor()
-    cur.execute("SELECT file_name, audio_text FROM audio_files")
-    lectures = cur.fetchall()
-    conn.close()
+    db = DatabaseConnection(DB_PATH_AUDIO, schema=None)
+    lectures = db.fetchall("SELECT file_name, audio_text FROM audio_files")
 
     if not lectures:
         await message.reply("❌ В базе нет лекций.")

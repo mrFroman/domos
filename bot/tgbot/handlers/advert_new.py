@@ -11,12 +11,11 @@ from config import ADVERT_TOKENS_DB_PATH, logger_bot
 
 def _token_exists(token: str) -> bool:
     """Returns True if token already stored in advert DB."""
-    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-        cur = conn.execute(
-            "SELECT 1 FROM tokens WHERE token = ? LIMIT 1",
-            (token,),
-        )
-        return cur.fetchone() is not None
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+    row = db.fetchone("SELECT 1 FROM tokens WHERE token = %s LIMIT 1", (token,))
+    return row is not None
 
 
 def _generate_unique_token() -> str:

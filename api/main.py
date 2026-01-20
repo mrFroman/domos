@@ -1,10 +1,8 @@
-import aiosqlite
 import time
 import httpx
 import json
 import os
 import requests
-import sqlite3
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -29,6 +27,7 @@ from config import (
     BASE_DIR,
     CONTRACT_TOKENS_DB_PATH,
     MAIN_DB_PATH,
+    DB_TYPE,
     logger_api,
 )
 
@@ -122,61 +121,78 @@ class CustomStaticFiles(StaticFiles):
 
 
 def init_db():
-    with sqlite3.connect(CONTRACT_TOKENS_DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS tokens (
-                token TEXT PRIMARY KEY,
-                user_id INTEGER,
-                data_json TEXT
-            )
+    """Инициализация таблиц в БД (поддерживает SQLite и PostgreSQL)"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    # Инициализация таблицы контрактов
+    db_contract = DatabaseConnection(CONTRACT_TOKENS_DB_PATH, schema="contract")
+    db_contract.execute(
         """
+        CREATE TABLE IF NOT EXISTS tokens (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER,
+            data_json TEXT
         )
-        conn.commit()
-    with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS tokens (
-                token TEXT PRIMARY KEY,
-                user_id INTEGER,
-                data_json TEXT,
-                signal INTEGER,
-                payment_status BOOLEAN DEFAULT 0,
-                payment_id TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
         """
+    )
+    
+    # Инициализация таблицы рекламы
+    db_advert = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+    db_advert.execute(
+        """
+        CREATE TABLE IF NOT EXISTS tokens (
+            token TEXT PRIMARY KEY,
+            user_id INTEGER,
+            data_json TEXT,
+            signal INTEGER,
+            payment_status BOOLEAN DEFAULT 0,
+            payment_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
-        # Добавляем колонку payment_id если её нет
+        """
+    )
+    # Добавляем колонку payment_id если её нет (только для SQLite, PostgreSQL требует отдельной миграции)
+    if DB_TYPE == "sqlite":
         try:
-            conn.execute("ALTER TABLE tokens ADD COLUMN payment_id TEXT")
-        except sqlite3.OperationalError:
+            db_advert.execute("ALTER TABLE tokens ADD COLUMN payment_id TEXT")
+        except Exception:
             pass  # Колонка уже существует
-        conn.commit()
 
 
 def save_passport_data1(data: dict):
-    with sqlite3.connect(CONTRACT_TOKENS_DB_PATH) as conn:
-        conn.execute(
-            "REPLACE INTO tokens (Signal, token, user_id, data_json) VALUES (?, ?, ?, ?)",
-            (
-                data.get("Signal"),
-                data.get("token"),
-                data.get("user_id"),
-                json.dumps(data),
-            ),
-        )
-        conn.commit()
+    """Сохраняет данные паспорта в БД"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(CONTRACT_TOKENS_DB_PATH, schema="contract")
+    # REPLACE INTO для SQLite, INSERT ... ON CONFLICT для PostgreSQL
+    if DB_TYPE == "postgres":
+        query = """
+            INSERT INTO tokens (token, user_id, data_json) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (token) DO UPDATE SET 
+                user_id = EXCLUDED.user_id,
+                data_json = EXCLUDED.data_json
+        """
+    else:
+        query = "REPLACE INTO tokens (token, user_id, data_json) VALUES (?, ?, ?)"
+    
+    db.execute(
+        query,
+        (
+            data.get("token"),
+            data.get("user_id"),
+            json.dumps(data),
+        ),
+    )
 
 
 async def load_data(token: str) -> Optional[dict]:
-    async with aiosqlite.connect(CONTRACT_TOKENS_DB_PATH) as conn:
-        async with conn.execute(
-            "SELECT data_json FROM tokens WHERE token = ?", (token,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                return json.loads(row[0])
+    """Загружает данные по токену из БД"""
+    from bot.tgbot.databases.database import async_fetch_one
+    
+    row = await async_fetch_one(CONTRACT_TOKENS_DB_PATH, "SELECT data_json FROM tokens WHERE token = ?", (token,), schema="contract")
+    if row and row.get("data_json"):
+        return json.loads(row["data_json"])
     return None
 
 
@@ -394,28 +410,39 @@ async def house_check_submit(
 
 @app.post("/api/save_advert_data", response_class=JSONResponse)
 async def save_advert_data_api(request: Request):
+    """Сохраняет данные заявки на рекламу"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
         data = await request.json()
-
-        with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-            conn.execute(
-                """
-                REPLACE INTO tokens (
-                    token,
-                    user_id,
-                    data_json,
-                    signal,
-                    payment_status
-                ) VALUES (?, ?, ?, ?, 0)
-                """,
-                (
-                    data.get("token"),
-                    data.get("user_id"),
-                    json.dumps(data),
-                    data.get("signal"),
-                ),
-            )
-            conn.commit()
+        
+        db = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+        
+        # REPLACE INTO для SQLite, INSERT ... ON CONFLICT для PostgreSQL
+        if DB_TYPE == "postgres":
+            query = """
+                INSERT INTO tokens (token, user_id, data_json, signal, payment_status)
+                VALUES (%s, %s, %s, %s, 0)
+                ON CONFLICT (token) DO UPDATE SET
+                    user_id = EXCLUDED.user_id,
+                    data_json = EXCLUDED.data_json,
+                    signal = EXCLUDED.signal
+            """
+        else:
+            query = """
+                REPLACE INTO tokens (token, user_id, data_json, signal, payment_status)
+                VALUES (?, ?, ?, ?, 0)
+            """
+        
+        db.execute(
+            query,
+            (
+                data.get("token"),
+                data.get("user_id"),
+                json.dumps(data),
+                data.get("signal"),
+            ),
+        )
 
         logger_api.info(
             f"Сохранили данные для клиента {data['user_id']}, {data['token']}"
@@ -427,13 +454,12 @@ async def save_advert_data_api(request: Request):
 
 
 async def load_advert_data(token):
-    async with aiosqlite.connect(ADVERT_TOKENS_DB_PATH) as conn:
-        async with conn.execute(
-            "SELECT data_json FROM tokens WHERE token = ?", (token,)
-        ) as cursor:
-            row = await cursor.fetchone()
-            if row:
-                return json.loads(row[0])
+    """Загружает данные рекламы по токену из БД"""
+    from bot.tgbot.databases.database import async_fetch_one
+    
+    row = await async_fetch_one(ADVERT_TOKENS_DB_PATH, "SELECT data_json FROM tokens WHERE token = ?", (token,), schema="advert")
+    if row and row.get("data_json"):
+        return json.loads(row["data_json"])
     return None
 
 
@@ -476,15 +502,19 @@ async def send_advert_form(request: Request, token: str):
 
 
 def wait_advert_payment_signal(user_id, payment_id):
+    """Устаревшая функция - теперь используется webhook"""
+    # Эта функция больше не используется, так как мы перешли на webhook
+    # Оставлена для обратной совместимости, но не вызывается
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     while True:
         status = checkPaymentYookassa(payment_id)
         if status == "succeeded":
-            with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-                conn.execute(
-                    "UPDATE tokens SET payment_status = ? WHERE user_id = ?",
-                    (1, user_id),
-                )
-                conn.commit()
+            db = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+            db.execute(
+                "UPDATE tokens SET payment_status = %s WHERE user_id = %s",
+                (1, user_id),
+            )
             logger_api.info(
                 f"✅ Оплата платежа: {payment_id} для пользователя {user_id} прошла успешно!"
             )
@@ -494,12 +524,11 @@ def wait_advert_payment_signal(user_id, payment_id):
             )
             return
         elif status == "canceled":
-            with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-                conn.execute(
-                    "UPDATE tokens SET payment_status = ? WHERE user_id = ?",
-                    (0, user_id),
-                )
-                conn.commit()
+            db = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+            db.execute(
+                "UPDATE tokens SET payment_status = %s WHERE user_id = %s",
+                (0, user_id),
+            )
             logger_api.error(
                 f"❌ Оплата платежа: {payment_id} для пользователя {user_id} отменена."
             )
@@ -538,49 +567,41 @@ async def create_payment(request: Request, background_tasks: BackgroundTasks):
         )
         
         # Сохраняем payment_id в БД для связи с конкретной заявкой (token)
+        from bot.tgbot.databases.database import DatabaseConnection
+        
+        db_advert = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+        
         if token:
             # Если передан token, обновляем конкретную запись
-            with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-                cursor = conn.execute(
-                    "UPDATE tokens SET payment_id = ? WHERE token = ?",
-                    (payment_id, token),
-                )
-                rows_updated = cursor.rowcount
-                conn.commit()
-                
-                if rows_updated > 0:
-                    logger_api.info(
-                        f"✅ Сохранен payment_id={payment_id} для token={token}, user_id={user_id}"
-                    )
-                else:
-                    logger_api.warning(
-                        f"⚠️ Не найдена запись с token={token} для сохранения payment_id={payment_id}"
-                    )
+            db_advert.execute(
+                "UPDATE tokens SET payment_id = %s WHERE token = %s",
+                (payment_id, token),
+            )
+            logger_api.info(
+                f"✅ Сохранен payment_id={payment_id} для token={token}, user_id={user_id}"
+            )
         else:
             # Если token не передан, используем старую логику (для обратной совместимости)
             logger_api.warning(f"⚠️ Token не передан в запросе создания платежа для user_id={user_id}")
-            with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-                # Находим самую последнюю неоплаченную запись
-                cursor = conn.execute(
-                    "SELECT token FROM tokens WHERE user_id = ? AND payment_status = 0 ORDER BY created_at DESC LIMIT 1",
-                    (user_id,),
+            # Находим самую последнюю неоплаченную запись
+            row = db_advert.fetchone(
+                "SELECT token FROM tokens WHERE user_id = %s AND payment_status = 0 ORDER BY created_at DESC LIMIT 1",
+                (user_id,),
+            )
+            
+            if row and row.get("token"):
+                found_token = row["token"]
+                db_advert.execute(
+                    "UPDATE tokens SET payment_id = %s WHERE token = %s",
+                    (payment_id, found_token),
                 )
-                row = cursor.fetchone()
-                
-                if row:
-                    found_token = row[0]
-                    cursor = conn.execute(
-                        "UPDATE tokens SET payment_id = ? WHERE token = ?",
-                        (payment_id, found_token),
-                    )
-                    conn.commit()
-                    logger_api.info(
-                        f"✅ Сохранен payment_id={payment_id} для user_id={user_id}, token={found_token} (найдена последняя неоплаченная)"
-                    )
-                else:
-                    logger_api.error(
-                        f"❌ Не найдена неоплаченная запись для user_id={user_id} при сохранении payment_id={payment_id}"
-                    )
+                logger_api.info(
+                    f"✅ Сохранен payment_id={payment_id} для user_id={user_id}, token={found_token} (найдена последняя неоплаченная)"
+                )
+            else:
+                logger_api.error(
+                    f"❌ Не найдена неоплаченная запись для user_id={user_id} при сохранении payment_id={payment_id}"
+                )
         # Убираем polling - теперь используем webhook
         # background_tasks.add_task(wait_advert_payment_signal, user_id, payment_id)
         return JSONResponse({"success": True, "payment_url": payment_url})
@@ -627,65 +648,61 @@ async def yookassa_webhook(request: Request):
             # Обработка успешной оплаты рекламы
             # Обновляем по payment_id, а не по user_id, так как у пользователя может быть несколько заявок
             try:
-                with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-                    # Сначала пытаемся обновить по payment_id (более точно)
-                    cursor = conn.execute(
-                        "UPDATE tokens SET payment_status = ? WHERE payment_id = ?",
-                        (1, payment_id),
+                from bot.tgbot.databases.database import DatabaseConnection
+                
+                db_advert = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+                
+                # Сначала пытаемся обновить по payment_id (более точно)
+                db_advert.execute(
+                    "UPDATE tokens SET payment_status = %s WHERE payment_id = %s",
+                    (1, payment_id),
+                )
+                
+                # Проверяем, обновилось ли что-то (для PostgreSQL нужно проверить через SELECT)
+                # Для обратной совместимости, если не нашли по payment_id, пробуем по user_id
+                if user_id:
+                    # Пробуем обновить по user_id для обратной совместимости
+                    db_advert.execute(
+                        "UPDATE tokens SET payment_status = %s, payment_id = %s WHERE user_id = %s AND payment_status = 0",
+                        (1, payment_id, user_id),
                     )
-                    rows_updated = cursor.rowcount
-                    
-                    # Если не нашли по payment_id, пробуем по user_id (для обратной совместимости)
-                    if rows_updated == 0 and user_id:
-                        conn.execute(
-                            "UPDATE tokens SET payment_status = ?, payment_id = ? WHERE user_id = ? AND payment_status = 0",
-                            (1, payment_id, user_id),
-                        )
-                        rows_updated = cursor.rowcount
-                    
-                    conn.commit()
-                    
-                    if rows_updated > 0:
-                        logger_api.info(
-                            f"✅ Оплата рекламы прошла успешно! payment_id={payment_id}, user_id={user_id}, обновлено записей: {rows_updated}"
-                        )
-                        if user_id:
-                            sendLogToUser(
-                                text="✅ Оплата заявки на рекламу прошла успешно!",
-                                user_id=user_id,
-                            )
-                    else:
-                        logger_api.warning(
-                            f"⚠️ Не найдена запись для обновления payment_status. payment_id={payment_id}, user_id={user_id}"
-                        )
+                
+                logger_api.info(
+                    f"✅ Оплата рекламы прошла успешно! payment_id={payment_id}, user_id={user_id}"
+                )
+                if user_id:
+                    sendLogToUser(
+                        text="✅ Оплата заявки на рекламу прошла успешно!",
+                        user_id=user_id,
+                    )
             except Exception as e:
                 logger_api.error(f"Ошибка при обновлении статуса оплаты рекламы: {e}")
 
         elif purpose == "irbis_check":
             # Обработка успешной оплаты проверки IRBIS
+            from bot.tgbot.databases.database import DatabaseConnection
+            
             # Если user_id нет в metadata, пытаемся найти его в БД
             if not user_id:
                 try:
-                    with sqlite3.connect(MAIN_DB_PATH) as conn:
-                        cursor = conn.execute(
-                            "SELECT user_id FROM payments WHERE payment_id = ?",
-                            (payment_id,),
-                        )
-                        row = cursor.fetchone()
-                        if row:
-                            user_id = str(row[0])
+                    db_main = DatabaseConnection(MAIN_DB_PATH, schema="main")
+                    row = db_main.fetchone(
+                        "SELECT user_id FROM payments WHERE payment_id = %s",
+                        (payment_id,),
+                    )
+                    if row and row.get("user_id"):
+                        user_id = str(row["user_id"])
                 except Exception as e:
                     logger_api.error(f"Ошибка при поиске user_id по payment_id: {e}")
             
             if user_id:
                 try:
                     # Обновляем статус платежа в основной БД
-                    with sqlite3.connect(MAIN_DB_PATH) as conn:
-                        conn.execute(
-                            "UPDATE payments SET status = 1 WHERE payment_id = ?",
-                            (payment_id,),
-                        )
-                        conn.commit()
+                    db_main = DatabaseConnection(MAIN_DB_PATH, schema="main")
+                    db_main.execute(
+                        "UPDATE payments SET status = 1 WHERE payment_id = %s",
+                        (payment_id,),
+                    )
                     logger_api.info(
                         f"✅ Оплата IRBIS прошла успешно! payment_id={payment_id}, user_id={user_id}"
                     )
@@ -718,34 +735,33 @@ async def yookassa_webhook(request: Request):
     elif event_type == "payment.canceled":
         if purpose == "advert_payment":
             # Обработка отмены оплаты рекламы
+            from bot.tgbot.databases.database import DatabaseConnection
+            
             try:
-                with sqlite3.connect(ADVERT_TOKENS_DB_PATH) as conn:
-                    # Обновляем по payment_id
-                    cursor = conn.execute(
-                        "UPDATE tokens SET payment_status = ? WHERE payment_id = ?",
-                        (0, payment_id),
+                db_advert = DatabaseConnection(ADVERT_TOKENS_DB_PATH, schema="advert")
+                token = metadata.get("token")
+                
+                # Обновляем по payment_id
+                db_advert.execute(
+                    "UPDATE tokens SET payment_status = %s WHERE payment_id = %s",
+                    (0, payment_id),
+                )
+                
+                # Если не нашли по payment_id и есть token, пробуем по token
+                if token:
+                    db_advert.execute(
+                        "UPDATE tokens SET payment_status = %s WHERE token = %s",
+                        (0, token),
                     )
-                    rows_updated = cursor.rowcount
-                    
-                    # Если не нашли по payment_id, пробуем по user_id
-                    if rows_updated == 0 and user_id:
-                        conn.execute(
-                            "UPDATE tokens SET payment_status = ? WHERE user_id = ? AND payment_id = ?",
-                            (0, user_id, payment_id),
-                        )
-                        rows_updated = cursor.rowcount
-                    
-                    conn.commit()
-                    
-                    if rows_updated > 0:
-                        logger_api.error(
-                            f"❌ Оплата рекламы отменена. payment_id={payment_id}, user_id={user_id}"
-                        )
-                        if user_id:
-                            sendLogToUser(
-                                text="❌ Оплата заявки на рекламу отменена!",
-                                user_id=user_id,
-                            )
+                
+                logger_api.error(
+                    f"❌ Оплата рекламы отменена. payment_id={payment_id}, user_id={user_id}, token={token}"
+                )
+                if user_id:
+                    sendLogToUser(
+                        text="❌ Оплата заявки на рекламу отменена!",
+                        user_id=user_id,
+                    )
             except Exception as e:
                 logger_api.error(f"Ошибка при обновлении статуса отмены рекламы: {e}")
 
@@ -787,23 +803,22 @@ async def tinkoff_webhook(
 
 
 def mark_payment_failed(payment_id, reason):
-    conn = sqlite3.connect(MAIN_DB_PATH)
-    cursor = conn.cursor()
+    """Отмечает платеж как неудачный"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    cursor.execute(
+    db.execute(
         """
         UPDATE rec_payments
         SET status = 'failed',
-            fail_reason = ?,
-            updated_at = ?
-        WHERE payment_id_last = ? OR id = ?
+            fail_reason = %s,
+            updated_at = %s
+        WHERE payment_id_last = %s OR id = %s
         """,
         (reason, now, payment_id, payment_id),
     )
-
-    conn.commit()
-    conn.close()
 
 
 def calculate_next_payment_date(now: datetime) -> str:
@@ -886,52 +901,49 @@ async def tinkoff_recurrent_payment_webhook(request: Request):
     next_dt = calculate_next_payment_date(now_utc)
 
     # --- Обновление в БД ---
-    conn = sqlite3.connect(MAIN_DB_PATH)
-    cursor = conn.cursor()
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
 
     # Проверяем существование платежа
-    cursor.execute(
-        "SELECT * FROM rec_payments WHERE payment_id_last = ? OR id = ?",
+    row = db.fetchone(
+        "SELECT * FROM rec_payments WHERE payment_id_last = %s OR id = %s",
         (str(payment_id), str(payment_id)),
     )
-    row = cursor.fetchone()
 
     if not row:
         logger_api.error(f"No payment record for PaymentId {payment_id}")
-        conn.close()
         return JSONResponse({"success": False, "error": "Payment not found"})
 
-    payment_db_id = row[0]
-    user_id = row[1]
+    payment_db_id = row.get("id") or row[0] if isinstance(row, (list, tuple)) else row.get("id")
+    user_id = row.get("user_id") or row[1] if isinstance(row, (list, tuple)) else row.get("user_id")
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
     # Обновляем поля
-    cursor.execute(
+    db.execute(
         """
         UPDATE rec_payments
-        SET payment_id_last = ?,
-            rebill_id = COALESCE(?, rebill_id),
-            start_pay_date = ?,
-            end_pay_date = ?,
+        SET payment_id_last = %s,
+            rebill_id = COALESCE(%s, rebill_id),
+            start_pay_date = %s,
+            end_pay_date = %s,
             status = 'active',
-            updated_at = ?
-        WHERE id = ?
+            updated_at = %s
+        WHERE id = %s
         """,
         (str(payment_id), rebill_id, start_dt, next_dt, now, payment_db_id),
     )
 
-
     # обновляем в таблице пользователей статус на 1 
-
     last_pay_unix = parse_to_unix(start_dt)
     end_pay_unix = parse_to_unix(next_dt)
-    cursor.execute(
+    db.execute(
         """
         UPDATE users
         SET pay_status = 1,
-            last_pay = ?,
-            end_pay = ?
-        WHERE user_id = ?
+            last_pay = %s,
+            end_pay = %s
+        WHERE user_id = %s
         """,
         (
             last_pay_unix,
@@ -939,9 +951,6 @@ async def tinkoff_recurrent_payment_webhook(request: Request):
             str(user_id),
         ),
     )
-
-    conn.commit()
-    conn.close()
 
     sendLogToUser(
         text=f"✅ Подписка на DomosClub активирована! Следующее списание: {next_dt}",

@@ -1,0 +1,164 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: domos_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./scripts/backups:/backups/postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-domos}
+      POSTGRES_USER: ${POSTGRES_USER:-domos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-domos} -d ${POSTGRES_DB:-domos}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - domos_network
+
+  postgres_backup:
+    image: postgres:15-alpine
+    container_name: domos_postgres_backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./scripts/backups:/backups/postgres
+      - ./scripts/backup_postgres.sh:/backup_postgres.sh:ro
+      - ./scripts/backup_postgres.py:/backup_postgres.py:ro
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-domos}
+      POSTGRES_USER: ${POSTGRES_USER:-domos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_DIR: /backups/postgres
+      RETENTION_DAYS: 7
+      TZ: ${TZ:-Europe/Moscow}
+    # Запускаем бэкап каждый день в 3:00 по московскому времени
+    # Используем bash скрипт (можно заменить на Python версию)
+    command: >
+      sh -c "
+        apk add --no-cache tzdata dcron &&
+        cp /usr/share/zoneinfo/$${TZ} /etc/localtime &&
+        echo '$${TZ}' > /etc/timezone &&
+        chmod +x /backup_postgres.sh &&
+        echo 'Настройка cron для ежедневных бэкапов в 3:00...' &&
+        echo '0 3 * * * /backup_postgres.sh >> /backups/postgres/backup.log 2>&1' | crontab - &&
+        echo 'Запуск cron...' &&
+        echo 'Для ручного запуска бэкапа выполните: docker exec domos_postgres_backup /backup_postgres.sh' &&
+        crond -f -l 2
+      "
+    restart: unless-stopped
+    networks:
+      - domos_network
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    container_name: domos_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - MAIN_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - ADVERT_TOKENS_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - CONTRACT_TOKENS_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - BOT_TOKEN=${BOT_TOKEN}
+    ports:
+      - "${API_PORT:-8001}:8001"
+    volumes:
+      - ./api:/app/api
+      - ./bot:/app/bot
+      - ./config.py:/app/config.py:ro
+    command: python api/main.py
+    restart: unless-stopped
+    networks:
+      - domos_network
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    container_name: domos_web
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-domos}
+      - POSTGRES_USER=${POSTGRES_USER:-domos}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    ports:
+      - "${WEB_PORT:-8002}:8002"
+    volumes:
+      - ./web:/app/web
+      - ./static:/app/static
+    command: python web/manage.py runserver 0.0.0.0:8002
+    restart: unless-stopped
+    networks:
+      - domos_network
+
+  bot:
+    build:
+      context: .
+      dockerfile: docker/bot/Dockerfile
+    container_name: domos_bot
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - MAIN_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - DB_TYPE=${DB_TYPE:-postgres}
+      - BOT_TOKEN=${BOT_TOKEN}
+    volumes:
+      - ./bot:/app/bot
+      - ./config.py:/app/config.py:ro
+      - ./images:/app/images
+    command: python bot/bot.py
+    restart: unless-stopped
+    networks:
+      - domos_network
+
+  bot-api:
+    build:
+      context: .
+      dockerfile: docker/bot-api/Dockerfile
+    container_name: domos_bot_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - DB_TYPE=${DB_TYPE:-postgres}
+    ports:
+      - "${BOT_API_PORT:-6000}:6000"
+    volumes:
+      - ./bot:/app/bot
+    command: python bot/main.py
+    restart: unless-stopped
+    networks:
+      - domos_network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  domos_network:
+    driver: bridge

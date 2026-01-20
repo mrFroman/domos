@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import secrets
-import sqlite3
 import json
 import os
 from pathlib import Path
@@ -10,6 +9,7 @@ from aiogram import types
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
+from bot.tgbot.databases.database import get_db_connection
 from config import BASE_DIR, CONTRACT_TOKENS_DB_PATH, logger_bot
 
 
@@ -152,27 +152,28 @@ async def wait_for_signal_and_run1(token: str, message, state: FSMContext):
         await asyncio.sleep(3)  # каждые 3 секунды проверка
         logger_bot.info(f"Ожидаем заполнения данных для клиента {user_id}, {token}")
         try:
-            with sqlite3.connect(CONTRACT_TOKENS_DB_PATH) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT Signal, data_json FROM tokens WHERE token = ?", (token,))
-                result = cursor.fetchone()
+            db = get_db_connection(CONTRACT_TOKENS_DB_PATH, schema="contract")
+            result = db.fetchone("SELECT Signal, data_json FROM tokens WHERE token = %s", (token,))
 
-                if result:
-                    signal, data_json = result
-                    if signal == 1:
-                        # Парсим JSON
-                        passport_data = json.loads(data_json)
-                        await message.answer("✅ Данные обновлены! Генерирую договор...")
-                        logger_bot.info("✅ Данные обновлены! Генерирую договор...")
-                        # Запуск функции генерации договора
-                        contract_path = await generate_contract(user_id, passport_data, state)
-                        await message.answer_document(open(contract_path, 'rb'))
-                        # Сбрасываем сигнал обратно в 0 (по желанию)
-                        cursor.execute(
-                            "UPDATE tokens SET Signal = 0 WHERE token = ?", (token,))
-                        conn.commit()
-                        break  # выходим из цикла после выполнения
+            if result:
+                if isinstance(result, dict):
+                    signal = result.get('Signal', 0)
+                    data_json = result.get('data_json', '{}')
+                else:
+                    signal = result[0] if len(result) > 0 else 0
+                    data_json = result[1] if len(result) > 1 else '{}'
+                
+                if signal == 1:
+                    # Парсим JSON
+                    passport_data = json.loads(data_json)
+                    await message.answer("✅ Данные обновлены! Генерирую договор...")
+                    logger_bot.info("✅ Данные обновлены! Генерирую договор...")
+                    # Запуск функции генерации договора
+                    contract_path = await generate_contract(user_id, passport_data, state)
+                    await message.answer_document(open(contract_path, 'rb'))
+                    # Сбрасываем сигнал обратно в 0 (по желанию)
+                    db.execute("UPDATE tokens SET Signal = 0 WHERE token = %s", (token,))
+                    break  # выходим из цикла после выполнения
         except Exception as e:
             logger_bot.error(f"Ошибка при проверке сигнала: {e}")
             break
@@ -181,37 +182,36 @@ async def wait_for_signal_and_run1(token: str, message, state: FSMContext):
 async def wait_for_signal_and_run(token: str, callback_query, state: FSMContext):
     user_id = callback_query.from_user.id
     while True:
-        await asyncio.sleep(10)  # каждые 3 секунды проверка
+        await asyncio.sleep(10)  # каждые 10 секунд проверка
         try:
-            with sqlite3.connect(CONTRACT_TOKENS_DB_PATH) as conn:
-                cursor = conn.cursor()
-                cursor.execute(
-                    "SELECT Signal, data_json FROM tokens WHERE token = ?", (token,))
-                result = cursor.fetchone()
+            db = get_db_connection(CONTRACT_TOKENS_DB_PATH, schema="contract")
+            result = db.fetchone("SELECT Signal, data_json FROM tokens WHERE token = %s", (token,))
 
-                if result:
-                    signal, data_json = result
-                    if signal == 1:
-                        # Парсим JSON
-                        try:
-                            passport_data = json.loads(data_json)
-                            await callback_query.message.answer("✅ Данные обновлены! Генерирую договор...")
-                            # Запуск функции генерации договора
-                            contract_path = await generate_contract(user_id, passport_data, state)
-                            await callback_query.message.answer_document(open(contract_path, 'rb'))
-                            # Сбрасываем сигнал обратно в 0 (по желанию)
-                            cursor.execute(
-                                "UPDATE tokens SET Signal = 0 WHERE token = ?", (token,))
-                            conn.commit()
-                            break  # выходим из цикла после выполнения
-                        except Exception as e:
-                            await callback_query.message.answer("❌ Ошибка при обработке данных. Проверьте формат JSON.")
-                            logger_bot.error(
-                                f"❌ Ошибка при обработке данных. Проверьте формат JSON: {e}")
-                            cursor.execute(
-                                "UPDATE tokens SET Signal = 0 WHERE token = ?", (token,))
-                            conn.commit()
-                            break
+            if result:
+                if isinstance(result, dict):
+                    signal = result.get('Signal', 0)
+                    data_json = result.get('data_json', '{}')
+                else:
+                    signal = result[0] if len(result) > 0 else 0
+                    data_json = result[1] if len(result) > 1 else '{}'
+                
+                if signal == 1:
+                    # Парсим JSON
+                    try:
+                        passport_data = json.loads(data_json)
+                        await callback_query.message.answer("✅ Данные обновлены! Генерирую договор...")
+                        # Запуск функции генерации договора
+                        contract_path = await generate_contract(user_id, passport_data, state)
+                        await callback_query.message.answer_document(open(contract_path, 'rb'))
+                        # Сбрасываем сигнал обратно в 0 (по желанию)
+                        db.execute("UPDATE tokens SET Signal = 0 WHERE token = %s", (token,))
+                        break  # выходим из цикла после выполнения
+                    except Exception as e:
+                        await callback_query.message.answer("❌ Ошибка при обработке данных. Проверьте формат JSON.")
+                        logger_bot.error(
+                            f"❌ Ошибка при обработке данных. Проверьте формат JSON: {e}")
+                        db.execute("UPDATE tokens SET Signal = 0 WHERE token = %s", (token,))
+                        break
         except Exception as e:
             logger_bot.error(f"Ошибка при проверке сигнала: {e}")
             break

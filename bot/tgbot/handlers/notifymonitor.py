@@ -1,13 +1,11 @@
-import sqlite3
 import time
 from datetime import datetime
 import requests
-from pathlib import Path
-path = str(Path(__file__).parents[2])
+
+from bot.tgbot.databases.database import DatabaseConnection
+from config import MAIN_DB_PATH
+
 token = '5519929200:AAFxf2y-QW7i3aW4hixhffFg1X7vDRG0zOQ'
-
-
-users_db_path = f'{path}/tgbot/databases/data.db'
 
 # def monitorTime():
 #     while True:
@@ -22,18 +20,20 @@ users_db_path = f'{path}/tgbot/databases/data.db'
 # #monitorTime()
 
 def newMonitoring():
+    """Мониторинг уведомлений о подписке"""
     while True:
-        connection = sqlite3.connect(users_db_path)
-        cur = connection.cursor()
-        data = cur.execute('SELECT * FROM users WHERE end_pay != 0').fetchall()
-        connection.close()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        data = db.fetchall('SELECT * FROM users WHERE end_pay != 0')
         current_datetime = datetime.now()
         day = current_datetime.day
         if day == 28 or day == 30:
             for i in data:
-                user_id = i[0]
-                logrs = requests.get(f'https://api.telegram.org/bot{token}/sendMessage?chat_id={user_id}&text=<b>Не забудьте оплатить подписку до 1-го числа!</b>&parse_mode=HTML')
-            connection.close()
+                if isinstance(i, dict):
+                    user_id = i.get('user_id', '')
+                else:
+                    user_id = i[0] if len(i) > 0 else ''
+                if user_id:
+                    requests.get(f'https://api.telegram.org/bot{token}/sendMessage?chat_id={user_id}&text=<b>Не забудьте оплатить подписку до 1-го числа!</b>&parse_mode=HTML')
         time.sleep(86400)
         
 time.sleep(36000)

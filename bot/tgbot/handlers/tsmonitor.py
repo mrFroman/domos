@@ -1,10 +1,7 @@
-import sqlite3
 import time
-from pathlib import Path
-path = str(Path(__file__).parents[2])
 
-
-users_db_path = f'{path}/tgbot/databases/data.db'
+from bot.tgbot.databases.database import DatabaseConnection
+from config import MAIN_DB_PATH
 
 # def monitorTime():
 #     while True:
@@ -19,23 +16,23 @@ users_db_path = f'{path}/tgbot/databases/data.db'
 # #monitorTime()
 
 def newMonitoring():
+    """Мониторинг истекших подписок"""
     while True:
-        connection = sqlite3.connect(users_db_path)
-        cur = connection.cursor()
-        data = cur.execute('SELECT * FROM users WHERE end_pay != 0').fetchall()
-        connection.close()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        data = db.fetchall('SELECT * FROM users WHERE end_pay != 0')
         for i in data:
             try:
-                connection = sqlite3.connect(users_db_path)
-                cur = connection.cursor()
-                user_id = i[0]
-                end_ts = i[4]
+                if isinstance(i, dict):
+                    user_id = i.get('user_id', '')
+                    end_ts = i.get('end_pay', 0)
+                else:
+                    user_id = i[0] if len(i) > 0 else ''
+                    end_ts = i[4] if len(i) > 4 else 0
+                
                 now_ts = int(time.time())
                 if now_ts >= end_ts:
-                    cur.execute('UPDATE users SET pay_status = 0 WHERE user_id = ?', (user_id,))
-                    cur.execute('UPDATE users SET end_pay = 0 WHERE user_id = ?', (user_id,))
-                    connection.commit()
-                connection.close()
+                    db.execute('UPDATE users SET pay_status = 0 WHERE user_id = %s', (user_id,))
+                    db.execute('UPDATE users SET end_pay = 0 WHERE user_id = %s', (user_id,))
                 time.sleep(1.5)
             except:
                 pass

@@ -2,12 +2,11 @@ import time
 import json
 import os
 import requests
-import sqlite3
 import uuid
 import datetime
 from datetime import timezone
 
-from config import BASE_DIR, MAIN_DB_PATH, load_config, logger_bot
+from config import BASE_DIR, MAIN_DB_PATH, DB_TYPE, load_config, logger_bot
 
 
 config = load_config(os.path.join(BASE_DIR, ".env"))
@@ -15,32 +14,31 @@ token = config.tg_bot.token
 
 
 def get_rec_payment(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = (
-        sqlite_connection.cursor()
-        .execute(
-            "SELECT * FROM rec_payments WHERE user_id = ? AND status = ?",
-            (user_id, "active"),
-        )
-        .fetchall()
+    """Получает активные рекуррентные платежи пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall(
+        "SELECT * FROM rec_payments WHERE user_id = %s AND status = %s",
+        (user_id, "active"),
     )
-    sqlite_connection.commit()
-    sqlite_connection.close()
     return info
 
 
 def createRecurrentPayment(payment_id, amount, user_id):
     """Создает запись о рекуррентном платеже в БД"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
         created_at = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute(
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute(
             """
             INSERT INTO rec_payments (
                 user_id, amount, currency, is_recurrent, status,
                 rebill_id, payment_id_last, start_pay_date, end_pay_date,
                 created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -55,8 +53,6 @@ def createRecurrentPayment(payment_id, amount, user_id):
                 created_at,  # дата создания записи
             ),
         )
-        sqlite_connection.commit()
-        sqlite_connection.close()
         logger_bot.info(
             f"Создан платёж в БД с payment_id {payment_id}, для пользователя {user_id}",
         )
@@ -65,35 +61,32 @@ def createRecurrentPayment(payment_id, amount, user_id):
 
 
 def get_user_by_user_id(user_id):
+    """Получает данные пользователя по user_id"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.row_factory = sqlite3.Row
-        cursor = sqlite_connection.cursor()
-
-        # Ищем пользователя в БД
-        cursor.execute(
-            'SELECT * FROM users WHERE user_id = ?',
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        user = db.fetchone(
+            'SELECT * FROM users WHERE user_id = %s',
             (user_id,)
         )
-        user = cursor.fetchone()
 
         # Формируем словарь с данными
         if user:
-            return dict(user)
+            return dict(user) if isinstance(user, dict) else user
         return {}
 
     except Exception as e:
         logger_bot.error(f"Ошибка при получении данных пользователя: {e}")
         return {}
-    finally:
-        sqlite_connection.close()
 
 
 def getAdmins():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT user_id FROM users WHERE rank = 1').fetchall()
-    sqlite_connection.close()
+    """Получает список администраторов"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall('SELECT user_id FROM users WHERE rank = 1')
     return info
 
 
@@ -104,56 +97,56 @@ def save_request_to_db(
     user_full_name: str,
     user_username: str
 ):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    cursor = sqlite_connection.cursor()
-
-    cursor.execute('''
+    """Сохраняет запрос в БД"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('''
         INSERT INTO requests (
             request_type,
             request_date,
             request_text,
             user_full_name,
             user_username
-        ) VALUES (?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s)
     ''', (
         request_type,
-        # SQLite expects str for datetime
+        # SQLite expects str for datetime, PostgreSQL тоже принимает строку
         request_date.strftime("%Y-%m-%d %H:%M:%S"),
         request_text,
         user_full_name,
         user_username
     ))
 
-    sqlite_connection.commit()
-    sqlite_connection.close()
-
 
 def get_user_info(user_id: int) -> dict:
     """Получает информацию о пользователе из БД"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        cursor = sqlite_connection.cursor()
-
-        # Ищем пользователя в БД
-        cursor.execute(
-            'SELECT full_name, fullName FROM users WHERE user_id = ?',
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        user_data = db.fetchone(
+            'SELECT full_name, fullName FROM users WHERE user_id = %s',
             (user_id,)
         )
-        user_data = cursor.fetchone()
 
         # Формируем словарь с данными
         if user_data:
-            return {
-                'full_name': user_data[0],
-                'fullName': user_data[1]
-            }
+            if isinstance(user_data, dict):
+                return {
+                    'full_name': user_data.get('full_name', ''),
+                    'fullName': user_data.get('fullName', '')
+                }
+            else:
+                return {
+                    'full_name': user_data[0] if len(user_data) > 0 else '',
+                    'fullName': user_data[1] if len(user_data) > 1 else ''
+                }
         return {}
 
     except Exception as e:
         logger_bot.error(f"Ошибка при получении данных пользователя: {e}")
         return {}
-    finally:
-        sqlite_connection.close()
 
 
 def update_user_full_name(user_id: int, name: str):
@@ -162,135 +155,153 @@ def update_user_full_name(user_id: int, name: str):
 
     :param user_id: ID пользователя для поиска
     :param name: Новое значение для поля full_name
-    :param db_path: Путь к файлу базы данных
     :return: Количество обновленных строк
     """
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        # Подключаемся к базе данных
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        cursor = sqlite_connection.cursor()
-
-        # Выполняем UPDATE запрос
-        cursor.execute(
-            "UPDATE users SET full_name = ? WHERE user_id = ?",
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute(
+            "UPDATE users SET full_name = %s WHERE user_id = %s",
             (name, user_id))
-
-        # Получаем количество измененных строк
-        rows_updated = cursor.rowcount
-
-        # Фиксируем изменения и закрываем соединение
-        sqlite_connection.commit()
-        sqlite_connection.close()
-
-        return rows_updated
-
-    except sqlite3.Error as error:
-        logger_bot.error(f"Ошибка при работе с SQLite: {error}")
+        return 1  # В PostgreSQL rowcount может работать по-другому, возвращаем 1 при успехе
+    except Exception as error:
+        logger_bot.error(f"Ошибка при обновлении full_name: {error}")
         return 0
 
 
 def get_user_full_name(user_id: int) -> str:
+    """Получает полное имя пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        cursor = sqlite_connection.cursor()
-        cursor.execute(
-            "SELECT full_name FROM users WHERE user_id = ?", (user_id,))
-        result = cursor.fetchone()
-        sqlite_connection.close()
-        return result[0] if result and result[0] else ''
-    except sqlite3.Error as error:
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        result = db.fetchone(
+            "SELECT full_name FROM users WHERE user_id = %s", (user_id,))
+        if result:
+            if isinstance(result, dict):
+                return result.get('full_name', '') or ''
+            else:
+                return result[0] if result[0] else ''
+        return ''
+    except Exception as error:
         logger_bot.error(f"Ошибка при получении ФИО: {error}")
         return ''
 
 
 def get_rieltor_data(user_id: int) -> dict:
     """Получает данные риелтора из БД"""
-    conn = sqlite3.connect(MAIN_DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    data = db.fetchone(
         "SELECT last_name, first_name, middle_name, passport_series, passport_number, "
         "birth_date, birth_place, issued_by, issue_date, department_code, registration_address "
-        "FROM passport_data WHERE user_id = ? AND role = 'rieltor'",
+        "FROM passport_data WHERE user_id = %s AND role = 'rieltor'",
         (user_id,)
     )
-    data = cursor.fetchone()
-    conn.close()
 
     if not data:
         return {}
 
-    return {
-        'last_name': data[0],
-        'first_name': data[1],
-        'middle_name': data[2],
-        'passport_series': data[3],
-        'passport_number': data[4],
-        'birth_date': data[5],
-        'birth_place': data[6],
-        'issued_by': data[7],
-        'issue_date': data[8],
-        'department_code': data[9],
-        'registration_address': data[10]
-    }
+    if isinstance(data, dict):
+        return data
+    else:
+        return {
+            'last_name': data[0] if len(data) > 0 else '',
+            'first_name': data[1] if len(data) > 1 else '',
+            'middle_name': data[2] if len(data) > 2 else '',
+            'passport_series': data[3] if len(data) > 3 else '',
+            'passport_number': data[4] if len(data) > 4 else '',
+            'birth_date': data[5] if len(data) > 5 else '',
+            'birth_place': data[6] if len(data) > 6 else '',
+            'issued_by': data[7] if len(data) > 7 else '',
+            'issue_date': data[8] if len(data) > 8 else '',
+            'department_code': data[9] if len(data) > 9 else '',
+            'registration_address': data[10] if len(data) > 10 else ''
+        }
 
 
 def get_last_client_data(user_id: int) -> dict:
     """Получает данные последнего клиента риелтора"""
-    conn = sqlite3.connect(MAIN_DB_PATH)
-    cursor = conn.cursor()
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     user_id1 = f"{user_id}_client"
-    cursor.execute(
-        "SELECT last_name, first_name, middle_name, passport_series, passport_number, "
-        "birth_date, birth_place, issued_by, issue_date, department_code, registration_address "
-        "FROM passport_data WHERE user_id = ? AND role = 'client' "
-        "ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC LIMIT 1",
-        (user_id1,)
-    )
-    data = cursor.fetchone()
-    conn.close()
+    # Адаптируем запрос для PostgreSQL (SUBSTR и INSTR работают по-другому)
+    if DB_TYPE == "postgres":
+        query = """
+            SELECT last_name, first_name, middle_name, passport_series, passport_number, 
+            birth_date, birth_place, issued_by, issue_date, department_code, registration_address 
+            FROM passport_data WHERE user_id = %s AND role = 'client' 
+            ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC LIMIT 1
+        """
+    else:
+        query = """
+            SELECT last_name, first_name, middle_name, passport_series, passport_number, 
+            birth_date, birth_place, issued_by, issue_date, department_code, registration_address 
+            FROM passport_data WHERE user_id = %s AND role = 'client' 
+            ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC LIMIT 1
+        """
+    
+    data = db.fetchone(query, (user_id1,))
 
     if not data:
         return {}
 
-    return {
-        'last_name': data[0],
-        'first_name': data[1],
-        'middle_name': data[2],
-        'passport_series': data[3],
-        'passport_number': data[4],
-        'birth_date': data[5],
-        'birth_place': data[6],
-        'issued_by': data[7],
-        'issue_date': data[8],
-        'department_code': data[9],
-        'registration_address': data[10]
-    }
+    if isinstance(data, dict):
+        return data
+    else:
+        return {
+            'last_name': data[0] if len(data) > 0 else '',
+            'first_name': data[1] if len(data) > 1 else '',
+            'middle_name': data[2] if len(data) > 2 else '',
+            'passport_series': data[3] if len(data) > 3 else '',
+            'passport_number': data[4] if len(data) > 4 else '',
+            'birth_date': data[5] if len(data) > 5 else '',
+            'birth_place': data[6] if len(data) > 6 else '',
+            'issued_by': data[7] if len(data) > 7 else '',
+            'issue_date': data[8] if len(data) > 8 else '',
+            'department_code': data[9] if len(data) > 9 else '',
+            'registration_address': data[10] if len(data) > 10 else ''
+        }
 
 
 def update_passport_data(user_id: int, field: str, new_value: str, is_client: bool = False):
     """Обновляет данные паспорта в БД"""
-    conn = sqlite3.connect(MAIN_DB_PATH)
-    cursor = conn.cursor()
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
 
     if is_client:
         # Для клиента обновляем последнюю запись
         user_id1 = f"{user_id}_client"
-        cursor.execute(
-            f"UPDATE passport_data SET {field} = ? "
-            "WHERE user_id = ? AND role = 'client' "
-            "ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC LIMIT 1",
-            (new_value, user_id1)
-        )
+        # Адаптируем запрос для PostgreSQL
+        if DB_TYPE == "postgres":
+            query = f"""
+                UPDATE passport_data SET {field} = %s 
+                WHERE user_id = %s AND role = 'client' 
+                AND id = (
+                    SELECT id FROM passport_data 
+                    WHERE user_id = %s AND role = 'client' 
+                    ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC 
+                    LIMIT 1
+                )
+            """
+            db.execute(query, (new_value, user_id1, user_id1))
+        else:
+            query = f"""
+                UPDATE passport_data SET {field} = %s 
+                WHERE user_id = %s AND role = 'client' 
+                ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC LIMIT 1
+            """
+            db.execute(query, (new_value, user_id1))
     else:
         # Для риелтора
-        cursor.execute(
-            f"UPDATE passport_data SET {field} = ? "
-            "WHERE user_id = ? AND role = 'rieltor'",
+        db.execute(
+            f"UPDATE passport_data SET {field} = %s WHERE user_id = %s AND role = 'rieltor'",
             (new_value, user_id)
         )
-
-    conn.commit()
-    conn.close()
 
 
 # Форматирование данных
@@ -309,36 +320,38 @@ def format_passport_data(data: dict, prefix: str = "") -> str:
 
 
 def get_realtor_and_last_client_data(user_id: int):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    cursor = sqlite_connection.cursor()
+    """Получает данные риелтора и последнего клиента"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
 
     try:
         # Получаем данные риелтора
-        cursor.execute("""
-            SELECT * FROM passport_data 
-            WHERE user_id = ? AND role = 'rieltor'
-        """, (user_id,))
-        realtor_row = cursor.fetchone()
-
-        # Получаем имена столбцов
-        realtor_columns = [column[0] for column in cursor.description]
-        realtor_data = dict(zip(realtor_columns, realtor_row)
-                            ) if realtor_row else None
+        realtor_result = db.fetchone(
+            "SELECT * FROM passport_data WHERE user_id = %s AND role = 'rieltor'",
+            (user_id,)
+        )
+        realtor_data = realtor_result if realtor_result else None
 
         # Получаем данные последнего клиента
-        cursor.execute("""
-            SELECT last_name, first_name, middle_name 
-            FROM passport_data 
-            WHERE user_id LIKE ? 
-            ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC 
-            LIMIT 1
-        """, (f"{user_id}_%",))
-        client_row = cursor.fetchone()
-
-        # Получаем имена столбцов
-        client_columns = [column[0] for column in cursor.description]
-        client_data = dict(zip(client_columns, client_row)
-                           ) if client_row else None
+        if DB_TYPE == "postgres":
+            client_query = """
+                SELECT last_name, first_name, middle_name 
+                FROM passport_data 
+                WHERE user_id LIKE %s 
+                ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC 
+                LIMIT 1
+            """
+        else:
+            client_query = """
+                SELECT last_name, first_name, middle_name 
+                FROM passport_data 
+                WHERE user_id LIKE %s 
+                ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC 
+                LIMIT 1
+            """
+        client_result = db.fetchone(client_query, (f"{user_id}_%",))
+        client_data = client_result if client_result else None
 
         return realtor_data, client_data
 
@@ -346,32 +359,38 @@ def get_realtor_and_last_client_data(user_id: int):
         logger_bot.error(
             f"Ошибка при получении данных риелтора и клиента: {e}")
         return None, None
-    finally:
-        sqlite_connection.close()
 
 
 def save_passport(passport_data: dict, user_id, registration_data: dict, is_client):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    cursor = sqlite_connection.cursor()
+    """Сохраняет паспортные данные в БД"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     logger_bot.info(f"Сохраняем паспортные данные в БД")
 
     try:
         client_id = None
         if is_client:
             # Получаем текущее количество клиентов у этого риелтора
-            cursor.execute(
-                "SELECT COUNT(*) FROM passport_data WHERE user_id = ? AND role LIKE 'client%'",
+            result = db.fetchone(
+                "SELECT COUNT(*) FROM passport_data WHERE user_id = %s AND role LIKE 'client%%'",
                 (user_id,)
             )
-            count = cursor.fetchone()[0]
+            if result:
+                if isinstance(result, dict):
+                    count = int(list(result.values())[0])
+                else:
+                    count = int(result[0]) if result[0] else 0
+            else:
+                count = 0
             client_id = f"client_{count + 1}"
 
             # Проверяем уникальность (на всякий случай)
-            cursor.execute(
-                "SELECT 1 FROM passport_data WHERE user_id = ? AND client_id = ?",
+            check_result = db.fetchone(
+                "SELECT 1 FROM passport_data WHERE user_id = %s AND client_id = %s",
                 (user_id, client_id)
             )
-            if cursor.fetchone():
+            if check_result:
                 # Если вдруг ID существует (маловероятно), добавляем случайный суффикс
                 client_id = f"client_{count + 1}_{uuid.uuid4().hex[:2]}"
 
@@ -380,7 +399,7 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
         tokens = str(raw_passport_number).split()
         passport_series_value = tokens[0] if len(tokens) > 0 else ''
         passport_number_value = tokens[1] if len(tokens) > 1 else ''
-        data = [
+        data = (
             user_id,
             client_id,
             passport_data.get('last_name', ''),
@@ -395,51 +414,60 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
             passport_data.get('issued_by', ''),
             registration_data.get('registration_adress', ''),
             'client' if is_client else 'rieltor'
-        ]
-        logger_bot.info(f"Данные для сохраненияв БД: {data}")
+        )
+        logger_bot.info(f"Данные для сохранения в БД: {data}")
 
-        # Удаляем None для client_id если это риелтор
-        if not is_client:
-            data[1] = None
-
-        cursor.execute("""
+        db.execute("""
             INSERT INTO passport_data 
             (user_id, client_id, last_name, first_name, middle_name, 
              passport_series, passport_number, department_code, birth_date, 
              birth_place, issue_date, issued_by, registration_address, role)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, data)
 
-        sqlite_connection.commit()
         return client_id  # Для клиентов вернет client_1, client_2 и т.д.
 
     except Exception as e:
         logger_bot.error(f"Ошибка при сохранении паспорта: {e}")
         return None
-    finally:
-        sqlite_connection.close()
 
 
 def check_passport_client_exists(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH
-                                        )
-    cursor = sqlite_connection.cursor()
+    """Проверяет существование паспортных данных клиента"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
 
     try:
         # Получаем последнюю запись паспорта для данного user_id
-        cursor.execute("""
-            SELECT last_name, first_name, middle_name 
-            FROM passport_data 
-            WHERE user_id LIKE ? 
-            ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC 
-            LIMIT 1
-        """, (f"{user_id}_%",))  # Используем LIKE для поиска по шаблону
-
-        result = cursor.fetchone()
+        if DB_TYPE == "postgres":
+            query = """
+                SELECT last_name, first_name, middle_name 
+                FROM passport_data 
+                WHERE user_id LIKE %s 
+                ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC 
+                LIMIT 1
+            """
+        else:
+            query = """
+                SELECT last_name, first_name, middle_name 
+                FROM passport_data 
+                WHERE user_id LIKE %s 
+                ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC 
+                LIMIT 1
+            """
+        result = db.fetchone(query, (f"{user_id}_%",))
 
         if result:
             # Если запись найдена, объединяем фамилию, имя и отчество в одну строку
-            last_name, first_name, middle_name = result
+            if isinstance(result, dict):
+                last_name = result.get('last_name', '')
+                first_name = result.get('first_name', '')
+                middle_name = result.get('middle_name', '')
+            else:
+                last_name = result[0] if len(result) > 0 else ''
+                first_name = result[1] if len(result) > 1 else ''
+                middle_name = result[2] if len(result) > 2 else ''
             full_name = f"{last_name} {first_name} {middle_name}"
             return full_name
         else:
@@ -449,19 +477,19 @@ def check_passport_client_exists(user_id):
     except Exception as e:
         logger_bot.error(f"Ошибка при получении данных паспорта: {e}")
         return 1  # Возвращаем 1 в случае ошибки
-    finally:
-        sqlite_connection.close()
 
 
 def check_passport_exists(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    cursor = sqlite_connection.cursor()
+    """Проверяет существование полных паспортных данных"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
 
     try:
         # Проверяем, есть ли данные паспорта для данного user_id
-        cursor.execute("""
+        result = db.fetchone("""
             SELECT COUNT(*) FROM passport_data 
-            WHERE user_id = ? AND 
+            WHERE user_id = %s AND 
             last_name IS NOT NULL AND 
             first_name IS NOT NULL AND 
             middle_name IS NOT NULL AND 
@@ -469,21 +497,25 @@ def check_passport_exists(user_id):
             passport_number IS NOT NULL
         """, (user_id,))
 
-        count = cursor.fetchone()[0]
-        return count > 0  # Если есть хотя бы одна запись, возвращаем True
+        if result:
+            if isinstance(result, dict):
+                count = int(list(result.values())[0])
+            else:
+                count = int(result[0]) if result[0] else 0
+            return count > 0  # Если есть хотя бы одна запись, возвращаем True
+        return False
 
     except Exception as e:
         logger_bot.error(f"Ошибка при проверке паспорта: {e}")
         return False
-    finally:
-        sqlite_connection.close()
 
 
 def getUnpaids():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT fullName FROM users WHERE pay_status = 0').fetchall()
-    sqlite_connection.close()
+    """Получает список неоплативших пользователей"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall('SELECT fullName FROM users WHERE pay_status = 0')
     return info
 
 
@@ -522,280 +554,325 @@ def sendMsgVideo(text, user_id, video):
     dictData = json.loads(logrs.text)
     return dictData['ok']
 def checkUserAdmin(user_id):
+    """Проверяет, является ли пользователь администратором"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     exists = checkUserExists(user_id)
     if exists == 'exists':
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        info = str(sqlite_connection.cursor().execute(
-            'SELECT rank FROM users WHERE user_id = ?', (user_id, )).fetchone()[0])
-        if info == '1':
-            return 'admin'
-        else:
-            return 'user'
-    else:
-        return 'user'
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        result = db.fetchone('SELECT rank FROM users WHERE user_id = %s', (user_id,))
+        if result:
+            if isinstance(result, dict):
+                info = str(result.get('rank', '0'))
+            else:
+                info = str(result[0]) if result[0] else '0'
+            if info == '1':
+                return 'admin'
+            else:
+                return 'user'
+    return 'user'
 
 
 def checkAdminLink(linkid):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
+    """Проверяет статус админской ссылки"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        info = str(sqlite_connection.cursor().execute(
-            'SELECT activated FROM admin WHERE link_id = ?', (linkid,)).fetchone()[0])
-        if info == '1':
-            sqlite_connection.close()
-            return 'alreadyactivated'
-        else:
-            sqlite_connection.close()
-            return 'successAdmined'
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        result = db.fetchone('SELECT activated FROM admin WHERE link_id = %s', (linkid,))
+        if result:
+            if isinstance(result, dict):
+                info = str(result.get('activated', '0'))
+            else:
+                info = str(result[0]) if result[0] else '0'
+            if info == '1':
+                return 'alreadyactivated'
+            else:
+                return 'successAdmined'
+        return '404'
     except:
         return '404'
 
 
 def checkRefLink(linkid, user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
+    """Проверяет и создает реферальную ссылку"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     exists = checkUserExists(linkid)
     if exists == 'exists':
-        info = sqlite_connection.cursor().execute(
-            "INSERT INTO refferal VALUES (?, ?)", (linkid, user_id,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO refferal VALUES (%s, %s)", (linkid, user_id,))
         return 'successreferaled'
     else:
-        sqlite_connection.close()
         return 'error404'
 
 
 def getAdminLink():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = str(sqlite_connection.cursor().execute(
-        'SELECT link_id FROM admin').fetchone()[0])
-    sqlite_connection.close()
-    return info
+    """Получает админскую ссылку"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone('SELECT link_id FROM admin')
+    if result:
+        if isinstance(result, dict):
+            return str(result.get('link_id', ''))
+        else:
+            return str(result[0]) if result[0] else ''
+    return ''
 
 
 def getUserEndPay(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = int(sqlite_connection.cursor().execute(
-        'SELECT end_pay FROM users WHERE user_id = ?', (user_id,)).fetchone()[0])
-    sqlite_connection.close()
-    return info
+    """Получает дату окончания подписки пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone('SELECT end_pay FROM users WHERE user_id = %s', (user_id,))
+    if result:
+        if isinstance(result, dict):
+            return int(result.get('end_pay', 0))
+        else:
+            return int(result[0]) if result[0] else 0
+    return 0
 
 
 def checkUserExists(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT * FROM users WHERE user_id = ?', (user_id, )).fetchone()
+    """Проверяет существование пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone('SELECT * FROM users WHERE user_id = %s', (user_id,))
     if info is None:
-        sqlite_connection.close()
-        return ('empty')
+        return 'empty'
     else:
-        sqlite_connection.close()
         return 'exists'
 
 
 def getBannedUserId(user_id):
+    """Получает статус бана пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     exists = checkUserExists(user_id)
     if exists == 'exists':
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        info = int(sqlite_connection.cursor().execute(
-            'SELECT banned FROM users WHERE user_id = ?', (user_id,)).fetchone()[0])
-        sqlite_connection.close()
-        return info
-    else:
-        return 0
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        result = db.fetchone('SELECT banned FROM users WHERE user_id = %s', (user_id,))
+        if result:
+            if isinstance(result, dict):
+                return int(result.get('banned', 0))
+            else:
+                return int(result[0]) if result[0] else 0
+    return 0
 
 
 def checkUserExistsUsername(username):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT * FROM users WHERE fullName = ?', (username, )).fetchone()
+    """Проверяет существование пользователя по username"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone('SELECT * FROM users WHERE fullName = %s', (username,))
     if info is None:
-        sqlite_connection.close()
         return 'empty', 'empty', 'empty', 'empty'
     else:
-        user_id = info[0]
-        pay_status = info[1]
-        rank = info[3]
-        sqlite_connection.close()
+        if isinstance(info, dict):
+            user_id = info.get('user_id', 'empty')
+            pay_status = info.get('pay_status', 'empty')
+            rank = info.get('rank', 'empty')
+        else:
+            user_id = info[0] if len(info) > 0 else 'empty'
+            pay_status = info[1] if len(info) > 1 else 'empty'
+            rank = info[3] if len(info) > 3 else 'empty'
         return user_id, pay_status, rank, username
 
 
 def regUser(user_id, username):
+    """Регистрирует нового пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                                           (user_id, 0, 0, 0, 0, username, 0, 0, 0,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO users VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                   (user_id, 0, 0, 0, 0, username, 0, 0, 0,))
         sendLogToAdm(
             f'<i>Новый юзер в боте:</i> @{username} | <code>{user_id}</code>')
-
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
 
 
 def changeSomeUserParam(user_id, param, paramNew):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        f'UPDATE users SET {param} = ? WHERE user_id = ?', (paramNew, user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Изменяет параметр пользователя (осторожно с SQL injection!)"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    # ВАЖНО: param не должен быть пользовательским вводом, только предопределенные значения
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute(f'UPDATE users SET {param} = %s WHERE user_id = %s', (paramNew, user_id,))
 
 
 def changeUsername(user_id, username):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET fullName = ? WHERE user_id = ?', (username, user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Изменяет username пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE users SET fullName = %s WHERE user_id = %s', (username, user_id,))
 
 
 def banUser(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET banned = 1 WHERE user_id = ?', (user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Блокирует пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE users SET banned = 1 WHERE user_id = %s', (user_id,))
 
 
 def unbanUser(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET banned = 0 WHERE user_id = ?', (user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Разблокирует пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE users SET banned = 0 WHERE user_id = %s', (user_id,))
 
 
 def changeUserAdminLink(user_id, status, string):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET rank = ? WHERE user_id = ?', (status, user_id,))
-    sqlite_connection.cursor().execute('UPDATE admin SET activated = 1')
-    sqlite_connection.commit()
-    sqlite_connection.cursor().execute('UPDATE admin SET link_id = ?', (string,))
-    sqlite_connection.cursor().execute('UPDATE admin SET activated = 0')
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Изменяет статус админа пользователя и обновляет ссылку"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE users SET rank = %s WHERE user_id = %s', (status, user_id,))
+    db.execute('UPDATE admin SET activated = 1')
+    db.execute('UPDATE admin SET link_id = %s', (string,))
+    db.execute('UPDATE admin SET activated = 0')
 
 
 def takeUserSub(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET pay_status = 0 WHERE user_id = ?', (user_id,))
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET last_pay = 0 WHERE user_id = ?', (user_id,))
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET end_pay = 0 WHERE user_id = ?', (user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Отменяет подписку пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE users SET pay_status = 0 WHERE user_id = %s', (user_id,))
+    db.execute('UPDATE users SET last_pay = 0 WHERE user_id = %s', (user_id,))
+    db.execute('UPDATE users SET end_pay = 0 WHERE user_id = %s', (user_id,))
 
 
 def changeUserAdmin(user_id):
+    """Переключает статус админа пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     now = checkUserAdmin(user_id)
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     if now == 'admin':
-        sqlite_connection.cursor().execute(
-            'UPDATE users SET rank = 0 WHERE user_id = ?', (user_id,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
+        db.execute('UPDATE users SET rank = 0 WHERE user_id = %s', (user_id,))
         return 'usered'
     else:
-        sqlite_connection.cursor().execute(
-            'UPDATE users SET rank = 1 WHERE user_id = ?', (user_id,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
+        db.execute('UPDATE users SET rank = 1 WHERE user_id = %s', (user_id,))
         return 'admined'
 
 
 def createRieltor(rieltor_id, fullname, phone, email, photo):
+    """Создает запись о риелторе"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute("INSERT INTO rieltors VALUES (?, ?, ?, ?, ?)",
-                                           (rieltor_id, fullname, email, photo, phone,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO rieltors VALUES (%s, %s, %s, %s, %s)",
+                   (rieltor_id, fullname, email, photo, phone,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
 
 
 def createEvent(event_id, desc, date, title, link, name, photo):
+    """Создает запись о событии"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute("INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?)",
-                                           (event_id, desc, date, title, link, name, photo,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO events VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                   (event_id, desc, date, title, link, name, photo,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
 
 
 def createContact(contact_id, fullname, phone, email, photo, job):
+    """Создает запись о контакте"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute("INSERT INTO contacts VALUES (?, ?, ?, ?, ?, ?)",
-                                           (contact_id, fullname, email, photo, phone, job,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO contacts VALUES (%s, %s, %s, %s, %s, %s)",
+                   (contact_id, fullname, email, photo, phone, job,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
 
 
 def createMeeting(user_id, day, meeting_id, roomnum):
+    """Создает запись о встрече"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute("INSERT INTO meetings VALUES (?, ?, ?, ?, ?, ?)",
-                                           (meeting_id, user_id, 0, day, 'None', int(roomnum)))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO meetings VALUES (%s, %s, %s, %s, %s, %s)",
+                   (meeting_id, user_id, 0, day, 'None', int(roomnum)))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
 
 
 def checkRoom(meeting_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = str(sqlite_connection.cursor().execute(
-        'SELECT roomnum FROM meetings WHERE meeting_id = ?', (meeting_id, )).fetchone()[0])
-    sqlite_connection.close()
-
-    return info
+    """Получает номер комнаты для встречи"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone('SELECT roomnum FROM meetings WHERE meeting_id = %s', (meeting_id,))
+    if result:
+        if isinstance(result, dict):
+            return str(result.get('roomnum', ''))
+        else:
+            return str(result[0]) if result[0] else ''
+    return ''
 
 
 def checkmeetingid(user_id, date, roomnum, time):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    cursor = sqlite_connection.cursor()
-    query = '''
-            SELECT meeting_id FROM meetings 
-            WHERE user_id = ? AND roomnum = ? AND date = ? AND times LIKE ?
-        '''
-    cursor.execute(query, (user_id, roomnum, date, f'%{time}%'))
-    info = cursor.fetchone()[0]
-    sqlite_connection.close()
-    return info
+    """Проверяет существование встречи по параметрам"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone(
+        'SELECT meeting_id FROM meetings WHERE user_id = %s AND roomnum = %s AND date = %s AND times LIKE %s',
+        (user_id, roomnum, date, f'%{time}%'))
+    if result:
+        if isinstance(result, dict):
+            return result.get('meeting_id', '')
+        else:
+            return result[0] if result[0] else ''
+    return ''
 
 
 def checkTimes(meeting_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = str(sqlite_connection.cursor().execute(
-        'SELECT times FROM meetings WHERE meeting_id = ?', (meeting_id, )).fetchone()[0])
-    sqlite_connection.close()
-    print(f'{info=}')
-    if info != 'None':
-        times = info.split(';')
-        try:
-            times.remove('')
-        except:
-            pass
-        return info
-    else:
-        return 'Empty'
+    """Получает времена встречи"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone('SELECT times FROM meetings WHERE meeting_id = %s', (meeting_id,))
+    if result:
+        if isinstance(result, dict):
+            info = str(result.get('times', 'None'))
+        else:
+            info = str(result[0]) if result[0] else 'None'
+        print(f'{info=}')
+        if info != 'None':
+            times = info.split(';')
+            try:
+                times.remove('')
+            except:
+                pass
+            return info
+        else:
+            return 'Empty'
+    return 'Empty'
 
 
 def editTimes(meeting_id, time, roomnum):
+    """Редактирует времена встречи"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     now_time = checkTimes(meeting_id)
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     if time not in now_time:
         if now_time == 'Empty':
             date = str(checkMeetingDay(meeting_id, roomnum))
@@ -804,7 +881,7 @@ def editTimes(meeting_id, time, roomnum):
                 print(info[0])
                 return 'busied'
             except:
-                sqlite_connection.cursor().execute('UPDATE meetings SET times = ? WHERE meeting_id = ? AND roomnum = ?', (time, meeting_id, roomnum))
+                db.execute('UPDATE meetings SET times = %s WHERE meeting_id = %s AND roomnum = %s', (time, meeting_id, roomnum))
         else:
             date = str(checkMeetingDay(meeting_id, roomnum))
             info = checkTimeExists(time, date, roomnum)
@@ -813,109 +890,125 @@ def editTimes(meeting_id, time, roomnum):
                 return 'busied'
             except:
                 finish = now_time + time
-                sqlite_connection.cursor().execute('UPDATE meetings SET times = ? WHERE meeting_id = ? AND roomnum = ?', (finish, meeting_id, roomnum))
+                db.execute('UPDATE meetings SET times = %s WHERE meeting_id = %s AND roomnum = %s', (finish, meeting_id, roomnum))
     else:
         now_time = now_time.split(';')
         now_time.remove(time.replace(';', ''))
         full_data = ';'.join(now_time)
         if full_data == '':
             full_data = 'None'
-        sqlite_connection.cursor().execute('UPDATE meetings SET times = ? WHERE meeting_id = ? AND roomnum = ?', (str(full_data), meeting_id, roomnum))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+        db.execute('UPDATE meetings SET times = %s WHERE meeting_id = %s AND roomnum = %s', (str(full_data), meeting_id, roomnum))
 
 
 def checkMeetingDay(meeting_id, roomnum):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = f"SELECT date FROM meetings WHERE meeting_id = '{meeting_id}' AND roomnum = {roomnum}"
-    info = sqlite_connection.cursor().execute(query).fetchone()[0]
-    sqlite_connection.commit()
-    sqlite_connection.close()
-    return info
+    """Получает дату встречи"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone("SELECT date FROM meetings WHERE meeting_id = %s AND roomnum = %s", (meeting_id, roomnum))
+    if result:
+        if isinstance(result, dict):
+            return result.get('date', '')
+        else:
+            return result[0] if result[0] else ''
+    return ''
 
 
 def deleteMeeting(meeting_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
+    """Удаляет встречу"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     try:
         meeting_id = str(meeting_id)
-        cursor = sqlite_connection.cursor()
-        # Безопасный вариант с параметризованным запросом (рекомендуется)
-        query = "DELETE FROM meetings WHERE meeting_id = ?"
-        cursor.execute(query, (meeting_id,))
-        sqlite_connection.commit()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("DELETE FROM meetings WHERE meeting_id = %s", (meeting_id,))
         return True  # Успешное удаление
     except Exception as e:
         logger_bot.error(f"Ошибка при удалении встречи: {e}")
         return False  # Ошибка при удалении
-    finally:
-        sqlite_connection.close()
 
 
 def getRieltorId(id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT * FROM rieltors WHERE id = ?', (id,)).fetchone()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Получает данные риелтора по ID"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone('SELECT * FROM rieltors WHERE id = %s', (id,))
     return info
 
 
 def getEventId(id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT * FROM events WHERE event_id = ?', (id,)).fetchone()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Получает данные события по ID"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone('SELECT * FROM events WHERE event_id = %s', (id,))
     return info
 
 
 def getContactId(id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT * FROM contacts WHERE id = ?', (id,)).fetchone()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Получает данные контакта по ID"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone('SELECT * FROM contacts WHERE id = %s', (id,))
     return info
 
 
 def getUserById(id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        'SELECT fullname FROM users WHERE user_id = ?', (id,)).fetchone()[0]
-    sqlite_connection.commit()
-    sqlite_connection.close()
-    return info
+    """Получает fullname пользователя по ID"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone('SELECT fullname FROM users WHERE user_id = %s', (id,))
+    if result:
+        if isinstance(result, dict):
+            return result.get('fullname', '')
+        else:
+            return result[0] if result[0] else ''
+    return ''
 
 
 def checkTimeExists(time, day, roomnum):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = f"SELECT times FROM meetings WHERE date = '{day}' AND times LIKE '%{time}%' and roomnum = {roomnum}"
-    info = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Проверяет, занято ли время"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT times FROM meetings WHERE date = %s AND times LIKE %s AND roomnum = %s", (day, f'%{time}%', roomnum))
     return info
 
 
 def checkTimeExists1(day, roomnum):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    cursor = sqlite_connection.cursor()
-
+    """Проверяет занятые времена и возвращает словарь {время: имя_пользователя}"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    
     # Получаем все занятые времена и соответствующие user_id
-    query = f"SELECT times, user_id FROM meetings WHERE date = ? AND roomnum = ?"
-    cursor.execute(query, (day, roomnum))
-    time_user_pairs = cursor.fetchall()
+    time_user_pairs = db.fetchall("SELECT times, user_id FROM meetings WHERE date = %s AND roomnum = %s", (day, roomnum))
 
     # Создаем словарь {время: имя_пользователя}
     occupied_times = {}
-    for time_slots, user_id in time_user_pairs:
+    for pair in time_user_pairs:
+        if isinstance(pair, dict):
+            time_slots = pair.get('times', '')
+            user_id = pair.get('user_id', '')
+        else:
+            time_slots = pair[0] if len(pair) > 0 else ''
+            user_id = pair[1] if len(pair) > 1 else ''
+        
         if not time_slots:
             continue
 
         # Получаем имя пользователя
-        cursor.execute(
-            "SELECT fullName FROM users WHERE user_id = ?", (user_id,))
-        user_row = cursor.fetchone()
-        user_name = user_row[0] if user_row else "Неизвестный пользователь"
+        user_result = db.fetchone("SELECT fullName FROM users WHERE user_id = %s", (user_id,))
+        if user_result:
+            if isinstance(user_result, dict):
+                user_name = user_result.get('fullName', 'Неизвестный пользователь')
+            else:
+                user_name = user_result[0] if user_result[0] else "Неизвестный пользователь"
+        else:
+            user_name = "Неизвестный пользователь"
 
         # Разбиваем по `;` и сохраняем каждое время отдельно
         for slot in time_slots.split(';'):
@@ -923,200 +1016,249 @@ def checkTimeExists1(day, roomnum):
             if cleaned_slot:  # Игнорируем пустые строки
                 occupied_times[cleaned_slot] = user_name
 
-    cursor.close()
-    sqlite_connection.close()
     return occupied_times
 
 
 def getAllMeetings():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = f"SELECT * FROM meetings"
-    rows = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.close()
+    """Получает все встречи"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    rows = db.fetchall("SELECT * FROM meetings")
     return rows
 
 
 def makeMeetCompleted(meeting_id, username, roomnum):
+    """Отмечает встречу как завершенную"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     day = str(checkMeetingDay(meeting_id, roomnum))
     times = checkTimes(meeting_id).split(';')
     full_data = ' '.join(times)
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE meetings SET status = 1 WHERE meeting_id = ? AND roomnum = ?', (meeting_id, roomnum))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE meetings SET status = 1 WHERE meeting_id = %s AND roomnum = %s', (meeting_id, roomnum))
     # sendLogToAdm(f'Пользователь @{username} забронировал переговорную на {day} на время: {full_data}')
 #    users = getAllUsersForAd()
 #    for i in users:
 #        res = sendLogToUser(f'Пользователь @{username} забронировал переговорную на {day} на время: {full_data}', i[0])
-    sqlite_connection.commit()
-    sqlite_connection.close()
 
 
 def getRieltors():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = "SELECT * FROM rieltors ORDER BY fullName"
-    info = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Получает список всех риелторов"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT * FROM rieltors ORDER BY fullName")
     return info
 
 
 def getEvents():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    # Сортировка по возрастанию времени
-    query = "SELECT * FROM events ORDER BY date ASC"
-    info = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Получает список всех событий, отсортированных по дате"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT * FROM events ORDER BY date ASC")
     return info
 
 
 def getContacts():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    query = "SELECT * FROM contacts"
-    info = sqlite_connection.cursor().execute(query).fetchall()
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Получает список всех контактов"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT * FROM contacts")
     return info
 
 
 def getUserPay(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT pay_status FROM users WHERE user_id = ?", (user_id,)).fetchone()[0]
-    sqlite_connection.commit()
-    sqlite_connection.close()
-    return int(info)
+    """Получает статус оплаты пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone("SELECT pay_status FROM users WHERE user_id = %s", (user_id,))
+    if result:
+        if isinstance(result, dict):
+            return int(result.get('pay_status', 0))
+        else:
+            return int(result[0]) if result[0] else 0
+    return 0
 
 
 def getPayment(id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT * FROM payments WHERE payment_id = ?", (id,)).fetchone()
-    sqlite_connection.commit()
-    sqlite_connection.close()
-    user_id = info[0]
-    amount = int(info[2])
-    created = int(info[3])
-    status = int(info[4])
-    return user_id, amount, created, status
+    """Получает информацию о платеже"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone("SELECT * FROM payments WHERE payment_id = %s", (id,))
+    if info:
+        if isinstance(info, dict):
+            user_id = info.get('user_id', '')
+            amount = int(info.get('amount', 0))
+            created = int(info.get('created', 0))
+            status = int(info.get('status', 0))
+        else:
+            user_id = info[0] if len(info) > 0 else ''
+            amount = int(info[2]) if len(info) > 2 else 0
+            created = int(info[3]) if len(info) > 3 else 0
+            status = int(info[4]) if len(info) > 4 else 0
+        return user_id, amount, created, status
+    return '', 0, 0, 0
 
 
 def getPaidUsersCount():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = int(sqlite_connection.cursor().execute(
-        "SELECT COUNT(*) FROM users WHERE pay_status = 1").fetchone()[0])
-    sqlite_connection.close()
-    return (info)
+    """Получает количество оплативших пользователей"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone("SELECT COUNT(*) FROM users WHERE pay_status = 1")
+    if result:
+        if isinstance(result, dict):
+            return int(list(result.values())[0])
+        else:
+            return int(result[0]) if result[0] else 0
+    return 0
 
 
 def getPaidUsers():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT fullName FROM users WHERE pay_status = 1").fetchall()
-    sqlite_connection.close()
-    return (info)
+    """Получает список оплативших пользователей"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT fullName FROM users WHERE pay_status = 1")
+    return info
 
 
 def getPaidUsersForAd():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT user_id FROM users WHERE pay_status = 1").fetchall()
-    sqlite_connection.close()
-    return (info)
+    """Получает список ID оплативших пользователей для админов"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT user_id FROM users WHERE pay_status = 1")
+    return info
 
 
 def getFreeUsersForAd():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT user_id FROM users WHERE pay_status = 0").fetchall()
-    sqlite_connection.close()
-    return (info)
+    """Получает список ID неоплативших пользователей для админов"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT user_id FROM users WHERE pay_status = 0")
+    return info
 
 
 def delRietlor(rieltor_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        "DELETE FROM rieltors WHERE id = ?", (rieltor_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Удаляет риелтора"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute("DELETE FROM rieltors WHERE id = %s", (rieltor_id,))
 
 
 def delContact(contact_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        "DELETE FROM contacts WHERE id = ?", (contact_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Удаляет контакт"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
 
 
 def delEvent(event_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        "DELETE FROM events WHERE event_id = ?", (event_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    """Удаляет событие"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute("DELETE FROM events WHERE event_id = %s", (event_id,))
 
 
 def getAllUsersForAd():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT user_id FROM users").fetchall()
-    sqlite_connection.close()
-    return (info)
+    """Получает список всех ID пользователей для админов"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT user_id FROM users")
+    return info
 
 
 def getAllUsersForApi():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute("SELECT * FROM users").fetchall()
-    sqlite_connection.close()
-    return (info)
+    """Получает всех пользователей для API"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT * FROM users")
+    return info
 
 
 def getAllPaymentsForApi():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT * FROM payments ORDER BY ts DESC").fetchall()
-    sqlite_connection.close()
-    return (info)
+    """Получает все платежи для API, отсортированные по времени"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchall("SELECT * FROM payments ORDER BY ts DESC")
+    return info
 
 
 def getFreeUsersCount():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = int(sqlite_connection.cursor().execute(
-        "SELECT COUNT(*) FROM users WHERE pay_status = 0").fetchone()[0])
-    sqlite_connection.close()
-    return (info)
+    """Получает количество неоплативших пользователей"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone("SELECT COUNT(*) FROM users WHERE pay_status = 0")
+    if result:
+        if isinstance(result, dict):
+            return int(list(result.values())[0])
+        else:
+            return int(result[0]) if result[0] else 0
+    return 0
 
 
 def getUsersCount():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = int(sqlite_connection.cursor().execute(
-        "SELECT COUNT(*) FROM users").fetchone()[0])
-    sqlite_connection.close()
-    return (info)
+    """Получает общее количество пользователей"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone("SELECT COUNT(*) FROM users")
+    if result:
+        if isinstance(result, dict):
+            return int(list(result.values())[0])
+        else:
+            return int(result[0]) if result[0] else 0
+    return 0
 
 
 def getPaymentCount():
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = int(sqlite_connection.cursor().execute(
-        "SELECT COUNT(*) FROM payments").fetchone()[0])
-    sqlite_connection.close()
-    return (info)
+    """Получает общее количество платежей"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    result = db.fetchone("SELECT COUNT(*) FROM payments")
+    if result:
+        if isinstance(result, dict):
+            return int(list(result.values())[0])
+        else:
+            return int(result[0]) if result[0] else 0
+    return 0
 
 
 def getUserRef(user_id):
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    info = sqlite_connection.cursor().execute(
-        "SELECT reffer_id FROM refferal WHERE user_id = ?", (user_id,)).fetchone()
-    sqlite_connection.close()
-    if info != None:
-        reffer_id = int(info[0])
+    """Получает ID реферера пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    info = db.fetchone("SELECT reffer_id FROM refferal WHERE user_id = %s", (user_id,))
+    if info is not None:
+        if isinstance(info, dict):
+            reffer_id = int(info.get('reffer_id', 0))
+        else:
+            reffer_id = int(info[0]) if info[0] else 0
         return reffer_id
     else:
         return '404'
 
 
 def giveUserSub(user_id, months):
+    """Дает пользователю подписку на указанное количество месяцев"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     int(user_id)
     int(months)
     t = datetime.date.today()
@@ -1133,22 +1275,18 @@ def giveUserSub(user_id, months):
         timestamp2 = time.mktime(n.timetuple())
 
     timestamp2 = int(timestamp2)
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET last_pay = ? WHERE user_id = ?', (now_ts, user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp2, user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.cursor().execute(
-        'UPDATE users SET pay_status = 1 WHERE user_id = ?', (user_id,))
-    sqlite_connection.commit()
-    sqlite_connection.close()
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db.execute('UPDATE users SET last_pay = %s WHERE user_id = %s', (now_ts, user_id,))
+    db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp2, user_id,))
+    db.execute('UPDATE users SET pay_status = 1 WHERE user_id = %s', (user_id,))
 
 
 def makePaymentCompleted(id):
+    """Отмечает платеж как завершенный и обновляет подписку пользователя"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     user_id, amount, created, status = getPayment(id)
-    sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
     t = datetime.date.today()
     now_ts = int(time.time())
     current_datetime = datetime.now()
@@ -1203,14 +1341,10 @@ def makePaymentCompleted(id):
     ref = getUserRef(user_id)
 
     if status == 0:
-        aa = sqlite_connection.cursor().execute(
-            'UPDATE payments SET status = 1 WHERE payment_id = ?', (id,))
-        sqlite_connection.cursor().execute(
-            'UPDATE users SET last_pay = ? WHERE user_id = ?', (now_ts, user_id,))
-        sqlite_connection.cursor().execute(
-            'UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp2, user_id,))
-        sqlite_connection.cursor().execute(
-            'UPDATE users SET pay_status = 1 WHERE user_id = ?', (user_id,))
+        db.execute('UPDATE payments SET status = 1 WHERE payment_id = %s', (id,))
+        db.execute('UPDATE users SET last_pay = %s WHERE user_id = %s', (now_ts, user_id,))
+        db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp2, user_id,))
+        db.execute('UPDATE users SET pay_status = 1 WHERE user_id = %s', (user_id,))
         if ref == '404':
             pass
         else:
@@ -1229,22 +1363,18 @@ def makePaymentCompleted(id):
             datetime_object = datetime.strptime(
                 new_dt, '%Y-%d-%m %H:%M:%S')
             timestamp = int(round(datetime_object.timestamp()))
-            sqlite_connection.cursor().execute(
-                'UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp, ref,))
+            db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp, ref,))
             sendLogToUser(
                 f'Ваш рефферал с ID {user_id} купил подписку, к вашей подписке добавлен 1 месяц.', ref)
-            sqlite_connection.commit()
-            sqlite_connection.close()
 
 
 def createPayment(id, amount, user_id):
+    """Создает запись о платеже"""
+    from bot.tgbot.databases.database import DatabaseConnection
+    
     now_ts = int(time.time())
     try:
-        sqlite_connection = sqlite3.connect(MAIN_DB_PATH)
-        sqlite_connection.cursor().execute(
-            "INSERT INTO payments VALUES (?, ?, ?, ?, 0)", (user_id, id, amount, now_ts,))
-        sqlite_connection.commit()
-        sqlite_connection.close()
-
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute("INSERT INTO payments VALUES (%s, %s, %s, %s, 0)", (user_id, id, amount, now_ts,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))

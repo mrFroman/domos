@@ -1,62 +1,64 @@
 import asyncio
 import uuid
-
-import aiosqlite
 from datetime import datetime, timedelta, timezone
 
 from bot.tgbot.databases.pay_db import sendLogToUser
+from bot.tgbot.databases.database import AsyncDatabaseConnection, DB_TYPE
 from bot.tgbot.handlers.tinkoff_api import TinkoffPayment
 from config import MAIN_DB_PATH, logger_bot
 
 
 async def get_due_recurrents():
-    # now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    # query = """
-    #     SELECT *
-    #     FROM rec_payments
-    #     WHERE is_recurrent = 1
-    #       AND status = 'active'
-    #       AND rebill_id IS NOT NULL
-    #       AND end_pay_date <= datetime('now')
-    # """
-
-    # async with aiosqlite.connect(MAIN_DB_PATH) as db:
-    #     db.row_factory = aiosqlite.Row
-    #     cursor = await db.execute(query)
-    #     rows = await cursor.fetchall()
-    #     return [dict(r) for r in rows]
+    """Получает рекуррентные платежи, которые нужно обработать"""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(
-            """
+    
+    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
+    
+    if DB_TYPE == "postgres":
+        query = """
             SELECT *
             FROM rec_payments
             WHERE is_recurrent = 1
             AND status = 'active'
             AND rebill_id IS NOT NULL
-            AND datetime(replace(end_pay_date, 'T', ' ')) <= datetime(?)
-            """,
-            (now,)
-        )
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+            AND end_pay_date <= %s
+        """
+        rows = await db.fetchall(query, (now,))
+    else:
+        query = """
+            SELECT *
+            FROM rec_payments
+            WHERE is_recurrent = 1
+            AND status = 'active'
+            AND rebill_id IS NOT NULL
+            AND datetime(replace(end_pay_date, 'T', ' ')) <= datetime(%s)
+        """
+        rows = await db.fetchall(query, (now,))
+    
+    return rows if rows else []
 
 
 async def get_expired_pending_payments():
-    query = """
-        SELECT *
-        FROM rec_payments
-        WHERE status = 'pending'
-          AND created_at <= datetime('now', '-3 days')
-    """
-
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cursor = await db.execute(query)
-        rows = await cursor.fetchall()
-        return [dict(r) for r in rows]
+    """Получает просроченные pending платежи"""
+    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
+    
+    if DB_TYPE == "postgres":
+        query = """
+            SELECT *
+            FROM rec_payments
+            WHERE status = 'pending'
+              AND created_at <= NOW() - INTERVAL '3 days'
+        """
+    else:
+        query = """
+            SELECT *
+            FROM rec_payments
+            WHERE status = 'pending'
+              AND created_at <= datetime('now', '-3 days')
+        """
+    
+    rows = await db.fetchall(query)
+    return rows if rows else []
 
 
 async def init_repeat(payment):
@@ -95,59 +97,66 @@ async def charge(payment_id, rebill_id):
 
 
 async def update_payment_dates(payment):
+    """Обновляет даты платежа и подписки пользователя"""
     new_start = datetime.now(timezone.utc)
     new_end = new_start + timedelta(days=30)
     
     start_ts = int(new_start.timestamp())
     end_ts = int(new_end.timestamp())
 
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        # 1. Получаем user_id по payment.id
-        async with db.execute(
-            "SELECT user_id FROM rec_payments WHERE id = ?",
-            (payment["id"],),
-        ) as cursor:
-            row = await cursor.fetchone()
+    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
+    
+    # 1. Получаем user_id по payment.id
+    payment_row = await db.fetchone("SELECT user_id FROM rec_payments WHERE id = %s", (payment["id"],))
+    
+    if not payment_row:
+        raise ValueError(f"Платёж с id={payment['id']} не найден")
+    
+    if isinstance(payment_row, dict):
+        user_id = payment_row.get('user_id')
+    else:
+        user_id = payment_row[0] if payment_row else None
+    
+    if not user_id:
+        raise ValueError(f"Не найден user_id для платежа id={payment['id']}")
 
-        if not row:
-            raise ValueError(f"Платёж с id={payment['id']} не найден")
-
-        user_id = row[0]
-
-        # 2. Обновляем rec_payments
+    # 2. Обновляем rec_payments
+    if DB_TYPE == "postgres":
         await db.execute(
             """
             UPDATE rec_payments
-            SET start_pay_date = ?,
-                end_pay_date = ?,
-                updated_at = datetime('now'),
+            SET start_pay_date = %s,
+                end_pay_date = %s,
+                updated_at = NOW(),
                 retry_count = 0
-            WHERE id = ?
+            WHERE id = %s
             """,
-            (
-                new_start.isoformat(),
-                new_end.isoformat(),
-                payment["id"],
-            ),
+            (new_start.isoformat(), new_end.isoformat(), payment["id"]),
         )
-
-        # 3. Обновляем users
+    else:
         await db.execute(
             """
-            UPDATE users
-            SET pay_status = 1,
-                last_pay = ?,
-                end_pay = ?
-            WHERE user_id = ?
+            UPDATE rec_payments
+            SET start_pay_date = %s,
+                end_pay_date = %s,
+                updated_at = datetime('now'),
+                retry_count = 0
+            WHERE id = %s
             """,
-            (
-                start_ts,
-                end_ts,
-                user_id,
-            ),
+            (new_start.isoformat(), new_end.isoformat(), payment["id"]),
         )
 
-        await db.commit()
+    # 3. Обновляем users
+    await db.execute(
+        """
+        UPDATE users
+        SET pay_status = 1,
+            last_pay = %s,
+            end_pay = %s
+        WHERE user_id = %s
+        """,
+        (start_ts, end_ts, user_id),
+    )
 
     logger_bot.info(
         f"Подписка обновлена: payment_id={payment['id']}, user_id={user_id}"
@@ -177,33 +186,40 @@ async def update_payment_dates(payment):
 
 
 async def delete_payment(payment):
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        await db.execute(
-            "DELETE FROM rec_payments WHERE id = ?",
-            (payment["id"],),
-        )
-        await db.commit()
-
+    """Удаляет просроченный pending платеж"""
+    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
+    await db.execute("DELETE FROM rec_payments WHERE id = %s", (payment["id"],))
     logger_bot.info(f"Удалён pending-платёж старше 3 дней: id={payment['id']}")
 
 
 async def mark_failed(payment, reason):
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
+    """Отмечает платеж как неудачный"""
+    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
+    
+    if DB_TYPE == "postgres":
         await db.execute(
             """
             UPDATE rec_payments
             SET status = 'failed',
-                fail_reason = ?,
+                fail_reason = %s,
+                retry_count = retry_count + 1,
+                updated_at = NOW()
+            WHERE id = %s
+        """,
+            (reason, payment["id"]),
+        )
+    else:
+        await db.execute(
+            """
+            UPDATE rec_payments
+            SET status = 'failed',
+                fail_reason = %s,
                 retry_count = retry_count + 1,
                 updated_at = datetime('now')
-            WHERE id = ?
+            WHERE id = %s
         """,
-            (
-                reason,
-                payment["id"],
-            ),
+            (reason, payment["id"]),
         )
-        await db.commit()
 
 
 async def process_recurrents():

@@ -1,11 +1,11 @@
 import asyncio
 import logging
-import sqlite3
 import os
 
 from aiogram import Bot
 from aiogram.utils.exceptions import BadRequest
 
+from bot.tgbot.databases.database import DatabaseConnection
 from config import BASE_DIR, MAIN_DB_PATH, load_config, logger_bot
 
 from dotenv import load_dotenv
@@ -27,11 +27,16 @@ else:
 def get_users_by_status(pay_status):
     """Получаем user_id по статусу оплаты"""
     try:
-        conn = sqlite3.connect(MAIN_DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute("SELECT user_id FROM users WHERE pay_status = ?", (pay_status,))
-        users = {int(row[0]) for row in cursor.fetchall()}
-        conn.close()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        rows = db.fetchall("SELECT user_id FROM users WHERE pay_status = %s", (pay_status,))
+        users = set()
+        for row in rows:
+            if isinstance(row, dict):
+                user_id = row.get('user_id')
+            else:
+                user_id = row[0] if row else None
+            if user_id:
+                users.add(int(user_id))
         return users
     except Exception as e:
         logger_bot.error(

@@ -70,3 +70,10 @@ service_account.json
 
 # Stack dumps
 *.stackdump
+
+# Docker backups
+scripts/backups/
+*.sql.gz
+
+# SQLite backups
+backups/sqlite/

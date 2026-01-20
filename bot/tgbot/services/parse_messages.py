@@ -4,12 +4,12 @@ import tempfile
 import asyncio
 
 import telethon
-import sqlite3
 from telethon import TelegramClient, events, types, functions
 from telethon.tl.functions.channels import InviteToChannelRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from openai import AsyncOpenAI
 
+from bot.tgbot.databases.database import DatabaseConnection
 from config import MAIN_DB_PATH, logger_bot, TOPIC_MAP, TOPIC_FIRST_MESSAGES
 
 from dotenv import load_dotenv, find_dotenv
@@ -418,14 +418,16 @@ CHECK_INTERVAL = 60  # проверка каждые 60 секунд
 async def get_users_all_paid_users(pay_status):
     """Получаем user_id по статусу оплаты"""
     try:
-        conn = sqlite3.connect(MAIN_DB_PATH)
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT fullName FROM users WHERE pay_status = ?",
-            (pay_status,),
-        )
-        users = {row[0] for row in cursor.fetchall()}
-        conn.close()
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        rows = db.fetchall("SELECT fullName FROM users WHERE pay_status = %s", (pay_status,))
+        users = set()
+        for row in rows:
+            if isinstance(row, dict):
+                fullname = row.get('fullName', '')
+            else:
+                fullname = row[0] if row else ''
+            if fullname:
+                users.add(fullname)
         return users
     except Exception as e:
         logger_bot.error(

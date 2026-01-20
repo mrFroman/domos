@@ -1,6 +1,5 @@
 import os
 import sys
-import sqlite3
 from typing import Iterable, List, Tuple
 
 from langchain_community.vectorstores import FAISS
@@ -14,12 +13,10 @@ from langchain_community.document_loaders import (
     TextLoader,
 )
 
+from bot.tgbot.databases.database import DatabaseConnection
+
 from dotenv import load_dotenv
 load_dotenv()
-
-
-def _connect(db_path: str) -> sqlite3.Connection:
-    return sqlite3.connect(db_path)
 
 
 def load_lectures_documents(db_path_audio: str) -> List[Document]:
@@ -30,16 +27,18 @@ def load_lectures_documents(db_path_audio: str) -> List[Document]:
     if not os.path.exists(db_path_audio):
         return []
 
-    conn = _connect(db_path_audio)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT file_name, audio_text FROM audio_files")
-        rows: List[Tuple[str, str]] = cursor.fetchall()
-    finally:
-        conn.close()
+    db = DatabaseConnection(db_path_audio, schema=None)
+    rows = db.fetchall("SELECT file_name, audio_text FROM audio_files")
 
     documents: List[Document] = []
-    for file_name, audio_text in rows:
+    for row in rows:
+        if isinstance(row, dict):
+            file_name = row.get('file_name', '')
+            audio_text = row.get('audio_text', '')
+        else:
+            file_name = row[0] if len(row) > 0 else ''
+            audio_text = row[1] if len(row) > 1 else ''
+        
         if not audio_text:
             continue
         title = str(file_name).rsplit(".", 1)[0]
@@ -63,79 +62,103 @@ def load_real_estate_documents(db_path_nmarket: str) -> List[Document]:
     if not os.path.exists(db_path_nmarket):
         return []
 
-    conn = _connect(db_path_nmarket)
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            """
-            SELECT 
-                c.id,
-                c.name,
-                c.url,
-                c.address,
-                c.developer,
-                c.floor_count,
-                c.status,
-                c.key_issue,
-                c.parking,
-                c.ceiling_height,
-                c.finishing,
-                c.contract_type,
-                c.building_type,
-                c.registration,
-                c.payment_options,
-                c.units_total,
-                u.unit_type,
-                u.building,
-                u.section,
-                u.floor,
-                u.apartment_number,
-                u.finishing,
-                u.total_area,
-                u.living_area,
-                u.kitchen_area,
-                u.price_full,
-                u.price_per_m2,
-                u.price_base
-            FROM complexes c
-            LEFT JOIN units u ON u.complex_id = c.id
-            """
-        )
-        rows = cursor.fetchall()
-    finally:
-        conn.close()
+    db = DatabaseConnection(db_path_nmarket, schema=None)
+    rows = db.fetchall(
+        """
+        SELECT 
+            c.id,
+            c.name,
+            c.url,
+            c.address,
+            c.developer,
+            c.floor_count,
+            c.status,
+            c.key_issue,
+            c.parking,
+            c.ceiling_height,
+            c.finishing,
+            c.contract_type,
+            c.building_type,
+            c.registration,
+            c.payment_options,
+            c.units_total,
+            u.unit_type,
+            u.building,
+            u.section,
+            u.floor,
+            u.apartment_number,
+            u.finishing,
+            u.total_area,
+            u.living_area,
+            u.kitchen_area,
+            u.price_full,
+            u.price_per_m2,
+            u.price_base
+        FROM complexes c
+        LEFT JOIN units u ON u.complex_id = c.id
+        """
+    )
 
     documents: List[Document] = []
-    for (
-        complex_id,
-        name,
-        building_url,
-        address,
-        developer,
-        floor_count,
-        status,
-        key_issue,
-        parking,
-        ceiling_height,
-        building_finishing,
-        contract_type,
-        building_type,
-        registration,
-        payment_options,
-        units_total,
-        unit_type,
-        building,
-        section,
-        floor,
-        apartment_number,
-        floor_finishing,
-        total_area,
-        living_area,
-        kitchen_area,
-        price_full,
-        price_per_m2,
-        price_base,
-    ) in rows:
+    for row in rows:
+        if isinstance(row, dict):
+            complex_id = row.get('id')
+            name = row.get('name')
+            building_url = row.get('url')
+            address = row.get('address')
+            developer = row.get('developer')
+            floor_count = row.get('floor_count')
+            status = row.get('status')
+            key_issue = row.get('key_issue')
+            parking = row.get('parking')
+            ceiling_height = row.get('ceiling_height')
+            building_finishing = row.get('finishing')
+            contract_type = row.get('contract_type')
+            building_type = row.get('building_type')
+            registration = row.get('registration')
+            payment_options = row.get('payment_options')
+            units_total = row.get('units_total')
+            unit_type = row.get('unit_type')
+            building = row.get('building')
+            section = row.get('section')
+            floor = row.get('floor')
+            apartment_number = row.get('apartment_number')
+            floor_finishing = row.get('finishing')
+            total_area = row.get('total_area')
+            living_area = row.get('living_area')
+            kitchen_area = row.get('kitchen_area')
+            price_full = row.get('price_full')
+            price_per_m2 = row.get('price_per_m2')
+            price_base = row.get('price_base')
+        else:
+            complex_id = row[0] if len(row) > 0 else None
+            name = row[1] if len(row) > 1 else None
+            building_url = row[2] if len(row) > 2 else None
+            address = row[3] if len(row) > 3 else None
+            developer = row[4] if len(row) > 4 else None
+            floor_count = row[5] if len(row) > 5 else None
+            status = row[6] if len(row) > 6 else None
+            key_issue = row[7] if len(row) > 7 else None
+            parking = row[8] if len(row) > 8 else None
+            ceiling_height = row[9] if len(row) > 9 else None
+            building_finishing = row[10] if len(row) > 10 else None
+            contract_type = row[11] if len(row) > 11 else None
+            building_type = row[12] if len(row) > 12 else None
+            registration = row[13] if len(row) > 13 else None
+            payment_options = row[14] if len(row) > 14 else None
+            units_total = row[15] if len(row) > 15 else None
+            unit_type = row[16] if len(row) > 16 else None
+            building = row[17] if len(row) > 17 else None
+            section = row[18] if len(row) > 18 else None
+            floor = row[19] if len(row) > 19 else None
+            apartment_number = row[20] if len(row) > 20 else None
+            floor_finishing = row[21] if len(row) > 21 else None
+            total_area = row[22] if len(row) > 22 else None
+            living_area = row[23] if len(row) > 23 else None
+            kitchen_area = row[24] if len(row) > 24 else None
+            price_full = row[25] if len(row) > 25 else None
+            price_per_m2 = row[26] if len(row) > 26 else None
+            price_base = row[27] if len(row) > 27 else None
         # Подчищаем None → ""
         def safe(v): return str(v) if v is not None else ""
 

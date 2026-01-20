@@ -2,24 +2,30 @@ import asyncio
 import calendar
 import logging
 import os
-import sqlite3
 from datetime import datetime, timedelta
 
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+from bot.tgbot.databases.database import DatabaseConnection
 from config import BASE_DIR, MAIN_DB_PATH, YEKATERINBURG_TZ, load_config, logger_bot
 
 
 # Функция для получения пользователей с pay_status = 1
 def get_paying_users(db_path: str):
+    """Получает список ID пользователей с активной подпиской"""
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT user_id FROM users WHERE pay_status = 1')
-        users = cursor.fetchall()
-        conn.close()
-        return [user[0] for user in users]
+        db = DatabaseConnection(db_path, schema="main")
+        users = db.fetchall('SELECT user_id FROM users WHERE pay_status = 1')
+        result = []
+        for user in users:
+            if isinstance(user, dict):
+                user_id = user.get('user_id')
+            else:
+                user_id = user[0] if user else None
+            if user_id:
+                result.append(user_id)
+        return result
         # return [779889025]  # Возвращаем список ID пользователей
     except Exception as e:
         logger_bot.error(f"Error getting paying users from DB: {e}")

@@ -1,4 +1,3 @@
-import sqlite3
 import uuid
 import os
 from datetime import datetime
@@ -29,6 +28,7 @@ from bot.tgbot.keyboards.inline import (
     mainmenubackbtnmk,
 )
 from bot.tgbot.misc.states import createDepositState
+from bot.tgbot.databases.database import AsyncDatabaseConnection, DB_TYPE
 from config import BASE_DIR, MAIN_DB_PATH, logger_bot
 from dotenv import load_dotenv, find_dotenv
 from datetime import datetime, timedelta, timezone
@@ -163,7 +163,6 @@ def create_recurrent_payment(price, desc, user_id):
 
 FORCED_USER_ID = "1094432705"
 
-import aiosqlite
 from aiogram import types
 NEXT_PAYMENT_DATE  = datetime(2025, 2, 28, tzinfo=timezone.utc)
 
@@ -172,50 +171,59 @@ async def sub_pay_active_mes(message: types.Message):
     today = datetime.now(timezone.utc).date()
     result_lines = []
 
-    async with aiosqlite.connect(MAIN_DB_PATH) as db:
-        async with db.execute(
-            """
-            SELECT id, user_id, start_pay_date, end_pay_date
-            FROM rec_payments
-            WHERE status = 'active'
-               OR user_id = ?
-            """,
-            (FORCED_USER_ID,),
-        ) as cursor:
-            payments = await cursor.fetchall()
+    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
+    
+    # Получаем активные подписки
+    query = """
+        SELECT id, user_id, start_pay_date, end_pay_date
+        FROM rec_payments
+        WHERE status = 'active'
+           OR user_id = %s
+    """
+    payments = await db.fetchall(query, (FORCED_USER_ID,))
 
-        if not payments:
-            await message.answer("❌ Активных подписок не найдено")
-            return
+    if not payments:
+        await message.answer("❌ Активных подписок не найдено")
+        return
 
-        for payment_id, user_id, start_date, end_date in payments:
-            start_dt = datetime.fromisoformat(start_date)
-            end_dt = datetime.fromisoformat(end_date)
+    for payment in payments:
+        if isinstance(payment, dict):
+            payment_id = payment.get('id')
+            user_id = payment.get('user_id')
+            start_date = payment.get('start_pay_date')
+            end_date = payment.get('end_pay_date')
+        else:
+            payment_id = payment[0]
+            user_id = payment[1]
+            start_date = payment[2]
+            end_date = payment[3]
+        
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
 
-            fixed = False
+        fixed = False
 
-            # Если подписка создана сегодня — дата следующей оплаты = 28.02.2026
-            if start_dt.date() == today:
-                fixed_end = NEXT_PAYMENT_DATE
-                fixed = True
-            else:
-                fixed_end = end_dt
+        # Если подписка создана сегодня — дата следующей оплаты = 28.02.2026
+        if start_dt.date() == today:
+            fixed_end = NEXT_PAYMENT_DATE
+            fixed = True
+        else:
+            fixed_end = end_dt
 
-            start_ts = int(start_dt.timestamp())  # сегодня
-            end_ts = int(fixed_end.timestamp())   # следующая оплата
+        start_ts = int(start_dt.timestamp())  # сегодня
+        end_ts = int(fixed_end.timestamp())   # следующая оплата
 
+        # Адаптируем SQL для разных БД
+        if DB_TYPE == "postgres":
             # обновляем rec_payments — только end_pay_date
             await db.execute(
                 """
                 UPDATE rec_payments
-                SET end_pay_date = ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
+                SET end_pay_date = %s,
+                    updated_at = NOW()
+                WHERE id = %s
                 """,
-                (
-                    fixed_end.isoformat(),
-                    payment_id,
-                ),
+                (fixed_end.isoformat(), payment_id),
             )
 
             # обновляем users
@@ -223,23 +231,40 @@ async def sub_pay_active_mes(message: types.Message):
                 """
                 UPDATE users
                 SET pay_status = 1,
-                    last_pay = ?,
-                    end_pay = ?
-                WHERE user_id = ?
+                    last_pay = %s,
+                    end_pay = %s
+                WHERE user_id = %s
                 """,
-                (
-                    start_ts,
-                    end_ts,
-                    user_id,
-                ),
+                (start_ts, end_ts, user_id),
+            )
+        else:
+            # обновляем rec_payments — только end_pay_date
+            await db.execute(
+                """
+                UPDATE rec_payments
+                SET end_pay_date = %s,
+                    updated_at = datetime('now')
+                WHERE id = %s
+                """,
+                (fixed_end.isoformat(), payment_id),
             )
 
-            mark = "🛠" if fixed else "✅"
-            result_lines.append(
-                f"{mark} user_id={user_id} | payment_id={payment_id}"
+            # обновляем users
+            await db.execute(
+                """
+                UPDATE users
+                SET pay_status = 1,
+                    last_pay = %s,
+                    end_pay = %s
+                WHERE user_id = %s
+                """,
+                (start_ts, end_ts, user_id),
             )
 
-        await db.commit()
+        mark = "🛠" if fixed else "✅"
+        result_lines.append(
+            f"{mark} user_id={user_id} | payment_id={payment_id}"
+        )
 
     # Telegram ограничение ~4096 символов
     text = "Активированные пользователи:\n\n" + "\n".join(result_lines)
