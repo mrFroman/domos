@@ -14,7 +14,7 @@ pydantic_core==2.18.4
 
 # Bot Framework
 aiogram==2.25.1  # Версия для совместимости
-aiohttp==3.9.5
+aiohttp==3.8.6  # Совместимо с aiogram 2.25.1
 aiofiles==23.2.1
 
 # Database
