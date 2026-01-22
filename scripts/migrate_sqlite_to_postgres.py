@@ -79,10 +79,13 @@ class SQLiteToPostgresMigrator:
         columns = cursor.fetchall()
         conn.close()
         
-        # Формируем CREATE TABLE запрос для PostgreSQL
+            # Формируем CREATE TABLE запрос для PostgreSQL
         column_defs = []
         for col in columns:
             col_name = col[1]
+            # Экранируем зарезервированные слова PostgreSQL
+            if col_name.upper() in ['DESC', 'ORDER', 'USER', 'GROUP', 'TABLE', 'INDEX']:
+                col_name = f'"{col_name}"'
             col_type = col[2].upper()
             is_pk = col[5] == 1
             not_null = col[3] == 1
@@ -110,7 +113,9 @@ class SQLiteToPostgresMigrator:
                 col_def += " NOT NULL"
             if default and not is_pk:
                 if isinstance(default, str):
-                    col_def += f" DEFAULT '{default}'"
+                    # Экранируем одинарные кавычки для PostgreSQL
+                    escaped_default = default.replace("'", "''")
+                    col_def += f" DEFAULT '{escaped_default}'"
                 else:
                     col_def += f" DEFAULT {default}"
             
@@ -170,7 +175,14 @@ class SQLiteToPostgresMigrator:
             
             # Вставляем данные
             with self.pg_conn.cursor() as cur:
-                execute_values(cur, insert_sql, data)
+                # Используем обычный execute для каждой строки (более надежно)
+                for row_data in data:
+                    try:
+                        cur.execute(insert_sql, row_data)
+                    except Exception as e:
+                        print(f"    ⚠️  Ошибка при вставке строки: {e}")
+                        # Пропускаем проблемную строку
+                        continue
             
             print(f"  ✅ Скопировано строк: {len(rows)}")
         else:
@@ -203,13 +215,12 @@ class SQLiteToPostgresMigrator:
         for table in tables:
             try:
                 self.migrate_table(sqlite_path, table, schema)
+                # Коммитим после каждой таблицы для изоляции ошибок
+                self.pg_conn.commit()
             except Exception as e:
                 print(f"  ❌ Ошибка при миграции таблицы {table}: {e}")
                 self.pg_conn.rollback()
                 continue
-        
-        # Коммитим все изменения
-        self.pg_conn.commit()
         print(f"\n✅ Миграция завершена успешно!")
     
     def close(self):

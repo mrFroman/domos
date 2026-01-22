@@ -36,11 +36,15 @@ else:
 ADVERT_POSITIONS_FILE = str(BASE_DIR / "api" / "advert_positions.json")
 
 # Настройка логирования
+# Создаем директорию для логов, если её нет
+logs_dir = BASE_DIR / "logs"
+logs_dir.mkdir(exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(str(BASE_DIR / "logs" / "app.log")),
+        logging.FileHandler(str(logs_dir / "app.log")),
         logging.StreamHandler()
     ]
 )
