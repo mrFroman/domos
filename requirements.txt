@@ -13,8 +13,7 @@ pydantic==2.7.4
 pydantic_core==2.18.4
 
 # Bot Framework
-aiogram==3.6.0
-aiogram==2.25.1  # Для совместимости со старым кодом (будет заменено)
+aiogram==2.25.1  # Версия для совместимости
 aiohttp==3.9.5
 aiofiles==23.2.1
 

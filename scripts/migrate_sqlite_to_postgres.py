@@ -96,7 +96,12 @@ class SQLiteToPostgresMigrator:
                 if is_pk:
                     pg_type = "SERIAL PRIMARY KEY"
                 else:
-                    pg_type = "INTEGER"
+                    # Проверяем имя колонки для boolean полей (только для определенных таблиц)
+                    col_lower = col_name.lower()
+                    if col_lower in ['payment_status', 'signal'] and table_name.lower() in ['tokens']:
+                        pg_type = "BOOLEAN"
+                    else:
+                        pg_type = "BIGINT"  # Используем BIGINT вместо INTEGER для больших чисел
             elif col_type == "TEXT":
                 pg_type = "TEXT"
             elif col_type == "REAL":
@@ -161,6 +166,13 @@ class SQLiteToPostgresMigrator:
             
             insert_sql = f"INSERT INTO {schema}.{table_name} ({columns_str}) VALUES ({placeholders})"
             
+            # Получаем информацию о типах колонок для правильной конвертации
+            sqlite_conn2 = sqlite3.connect(sqlite_path)
+            cursor_info = sqlite_conn2.cursor()
+            cursor_info.execute(f"PRAGMA table_info({table_name})")
+            col_info = {col[1]: col[2].upper() for col in cursor_info.fetchall()}
+            sqlite_conn2.close()
+            
             # Подготавливаем данные для вставки
             data = []
             for row in rows:
@@ -170,21 +182,72 @@ class SQLiteToPostgresMigrator:
                     # Конвертируем типы для PostgreSQL
                     if isinstance(value, bytes):
                         value = psycopg2.Binary(value)
+                    elif value is not None:
+                        # Конвертируем INTEGER в BOOLEAN для определенных полей
+                        col_type = col_info.get(col, "").upper()
+                        col_lower = col.lower()
+                        # Проверяем, является ли это boolean полем (по имени колонки и таблице)
+                        # В SQLite BOOLEAN хранится как INTEGER, поэтому проверяем оба случая
+                        is_boolean_field = (
+                            col_lower in ['payment_status', 'signal'] and 
+                            table_name.lower() == 'tokens' and
+                            (col_type == "INTEGER" or col_type == "BOOLEAN")
+                        )
+                        if is_boolean_field:
+                            # Конвертируем 0/1/None в False/True/None
+                            if value is None:
+                                value = None
+                            else:
+                                # Приводим к int, затем к bool
+                                try:
+                                    int_val = int(value) if value not in (None, '') else 0
+                                    value = bool(int_val)
+                                except (ValueError, TypeError):
+                                    value = False
+                        elif col_type == "INTEGER" and isinstance(value, int):
+                            # Для больших чисел используем как есть (BIGINT)
+                            pass
                     row_data.append(value)
                 data.append(tuple(row_data))
             
             # Вставляем данные
-            with self.pg_conn.cursor() as cur:
-                # Используем обычный execute для каждой строки (более надежно)
-                for row_data in data:
-                    try:
-                        cur.execute(insert_sql, row_data)
-                    except Exception as e:
-                        print(f"    ⚠️  Ошибка при вставке строки: {e}")
-                        # Пропускаем проблемную строку
-                        continue
+            inserted_count = 0
+            error_count = 0
             
-            print(f"  ✅ Скопировано строк: {len(rows)}")
+            # Используем отдельные транзакции для каждой строки через savepoints
+            cur = self.pg_conn.cursor()
+            for idx, row_data in enumerate(data, 1):
+                # Создаем savepoint для каждой строки
+                savepoint_name = f"sp_{idx}"
+                try:
+                    cur.execute(f"SAVEPOINT {savepoint_name}")
+                    cur.execute(insert_sql, row_data)
+                    cur.execute(f"RELEASE SAVEPOINT {savepoint_name}")
+                    inserted_count += 1
+                    # Коммитим каждые 100 строк
+                    if inserted_count % 100 == 0:
+                        self.pg_conn.commit()
+                except Exception as e:
+                    error_count += 1
+                    # Откатываемся к savepoint (не к началу транзакции!)
+                    try:
+                        cur.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+                        cur.execute(f"RELEASE SAVEPOINT {savepoint_name}")
+                    except:
+                        pass
+                    # Показываем только первые 10 ошибок
+                    if error_count <= 10:
+                        print(f"    ⚠️  Ошибка при вставке строки {idx}: {str(e)[:150]}")
+                    continue
+            
+            # Финальный commit
+            self.pg_conn.commit()
+            cur.close()
+            
+            if error_count > 0:
+                print(f"  ✅ Скопировано строк: {inserted_count} из {len(rows)} (пропущено ошибок: {error_count})")
+            else:
+                print(f"  ✅ Скопировано строк: {inserted_count}")
         else:
             print(f"  ⚠️  Таблица пуста")
         
@@ -216,10 +279,17 @@ class SQLiteToPostgresMigrator:
             try:
                 self.migrate_table(sqlite_path, table, schema)
                 # Коммитим после каждой таблицы для изоляции ошибок
-                self.pg_conn.commit()
+                # (commit уже выполнен внутри migrate_table, но на всякий случай)
+                try:
+                    self.pg_conn.commit()
+                except:
+                    pass
             except Exception as e:
                 print(f"  ❌ Ошибка при миграции таблицы {table}: {e}")
-                self.pg_conn.rollback()
+                try:
+                    self.pg_conn.rollback()
+                except:
+                    pass
                 continue
         print(f"\n✅ Миграция завершена успешно!")
     
