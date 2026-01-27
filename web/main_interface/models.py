@@ -6,7 +6,7 @@ import uuid
 class TelegramToken(models.Model):
     """Модель для хранения токенов авторизации через Telegram"""
 
-    EXPIRATION_MINUTES = 15
+    EXPIRATION_MINUTES = 30  # Увеличено с 15 до 30 минут
 
     STATUS_CHOICES = [
         ("pending", "Ожидает обработки"),

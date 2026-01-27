@@ -121,5 +121,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Login settings
 LOGIN_URL = '/auth/login/'
 
-FORCE_SCRIPT_NAME = '/domosclub'
+# FORCE_SCRIPT_NAME = '/domosclub'  # Закомментировано для локальной разработки
 CSRF_TRUSTED_ORIGINS = ["https://neurochief.pro", "https://www.neurochief.pro"]
