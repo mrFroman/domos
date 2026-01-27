@@ -1,3 +1,4 @@
+import sqlite3
 import uuid
 import os
 from datetime import datetime
@@ -28,7 +29,6 @@ from bot.tgbot.keyboards.inline import (
     mainmenubackbtnmk,
 )
 from bot.tgbot.misc.states import createDepositState
-from bot.tgbot.databases.database import AsyncDatabaseConnection, DB_TYPE
 from config import BASE_DIR, MAIN_DB_PATH, logger_bot
 from dotenv import load_dotenv, find_dotenv
 from datetime import datetime, timedelta, timezone
@@ -163,6 +163,7 @@ def create_recurrent_payment(price, desc, user_id):
 
 FORCED_USER_ID = "1094432705"
 
+import aiosqlite    
 from aiogram import types
 NEXT_PAYMENT_DATE  = datetime(2025, 2, 28, tzinfo=timezone.utc)
 
@@ -171,82 +172,50 @@ async def sub_pay_active_mes(message: types.Message):
     today = datetime.now(timezone.utc).date()
     result_lines = []
 
-    db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
-    
-    # Получаем активные подписки
-    query = """
-        SELECT id, user_id, start_pay_date, end_pay_date
-        FROM rec_payments
-        WHERE status = 'active'
-           OR user_id = %s
-    """
-    payments = await db.fetchall(query, (FORCED_USER_ID,))
+    async with aiosqlite.connect(MAIN_DB_PATH) as db:
+        async with db.execute(
+            """
+            SELECT id, user_id, start_pay_date, end_pay_date
+            FROM rec_payments
+            WHERE status = 'active'
+               OR user_id = ?
+            """,
+            (FORCED_USER_ID,),
+        ) as cursor:
+            payments = await cursor.fetchall()
 
-    if not payments:
-        await message.answer("❌ Активных подписок не найдено")
-        return
+        if not payments:
+            await message.answer("❌ Активных подписок не найдено")
+            return
 
-    for payment in payments:
-        if isinstance(payment, dict):
-            payment_id = payment.get('id')
-            user_id = payment.get('user_id')
-            start_date = payment.get('start_pay_date')
-            end_date = payment.get('end_pay_date')
-        else:
-            payment_id = payment[0]
-            user_id = payment[1]
-            start_date = payment[2]
-            end_date = payment[3]
-        
-        start_dt = datetime.fromisoformat(start_date)
-        end_dt = datetime.fromisoformat(end_date)
+        for payment_id, user_id, start_date, end_date in payments:
+            start_dt = datetime.fromisoformat(start_date)
+            end_dt = datetime.fromisoformat(end_date)
 
-        fixed = False
+            fixed = False
 
-        # Если подписка создана сегодня — дата следующей оплаты = 28.02.2026
-        if start_dt.date() == today:
-            fixed_end = NEXT_PAYMENT_DATE
-            fixed = True
-        else:
-            fixed_end = end_dt
+            # Если подписка создана сегодня — дата следующей оплаты = 28.02.2026
+            if start_dt.date() == today:
+                fixed_end = NEXT_PAYMENT_DATE
+                fixed = True
+            else:
+                fixed_end = end_dt
 
-        start_ts = int(start_dt.timestamp())  # сегодня
-        end_ts = int(fixed_end.timestamp())   # следующая оплата
+            start_ts = int(start_dt.timestamp())  # сегодня
+            end_ts = int(fixed_end.timestamp())   # следующая оплата
 
-        # Адаптируем SQL для разных БД
-        if DB_TYPE == "postgres":
             # обновляем rec_payments — только end_pay_date
             await db.execute(
                 """
                 UPDATE rec_payments
-                SET end_pay_date = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-                """,
-                (fixed_end.isoformat(), payment_id),
-            )
-
-            # обновляем users
-            await db.execute(
-                """
-                UPDATE users
-                SET pay_status = 1,
-                    last_pay = %s,
-                    end_pay = %s
-                WHERE user_id = %s
-                """,
-                (start_ts, end_ts, user_id),
-            )
-        else:
-            # обновляем rec_payments — только end_pay_date
-            await db.execute(
-                """
-                UPDATE rec_payments
-                SET end_pay_date = %s,
+                SET end_pay_date = ?,
                     updated_at = datetime('now')
-                WHERE id = %s
+                WHERE id = ?
                 """,
-                (fixed_end.isoformat(), payment_id),
+                (
+                    fixed_end.isoformat(),
+                    payment_id,
+                ),
             )
 
             # обновляем users
@@ -254,17 +223,23 @@ async def sub_pay_active_mes(message: types.Message):
                 """
                 UPDATE users
                 SET pay_status = 1,
-                    last_pay = %s,
-                    end_pay = %s
-                WHERE user_id = %s
+                    last_pay = ?,
+                    end_pay = ?
+                WHERE user_id = ?
                 """,
-                (start_ts, end_ts, user_id),
+                (
+                    start_ts,
+                    end_ts,
+                    user_id,
+                ),
             )
 
-        mark = "🛠" if fixed else "✅"
-        result_lines.append(
-            f"{mark} user_id={user_id} | payment_id={payment_id}"
-        )
+            mark = "🛠" if fixed else "✅"
+            result_lines.append(
+                f"{mark} user_id={user_id} | payment_id={payment_id}"
+            )
+
+        await db.commit()
 
     # Telegram ограничение ~4096 символов
     text = "Активированные пользователи:\n\n" + "\n".join(result_lines)
@@ -274,7 +249,7 @@ async def sub_pay_active_mes(message: types.Message):
     await message.answer(text)
 
 
-async def sub_pay_active(update: Union[Message, CallbackQuery]):
+async def sub_pay_active(update: Union[Message, CallbackQuery], state: FSMContext):
     if isinstance(update, CallbackQuery):
         message = update.message
         user = update.from_user
@@ -283,6 +258,9 @@ async def sub_pay_active(update: Union[Message, CallbackQuery]):
         message = update
         user = update.from_user
         reply = message.answer 
+
+    user_data = await state.get_data()
+    fullname = user_data.get("fullname")
 
     username = user.username
     user_id = user.id
@@ -300,7 +278,7 @@ async def sub_pay_active(update: Union[Message, CallbackQuery]):
 
     _, payment_url = create_recurrent_payment(
         price=int(os.getenv("MOUNTH_SUBSCRIPTION_PRICE", 10000)),
-        desc="Оплата подписки",
+        desc=f"Оплата подписки от\n ФИО: {fullname}",
         user_id=user_id,
     )
 
@@ -316,7 +294,7 @@ async def sub_pay_active(update: Union[Message, CallbackQuery]):
     )
 
     await reply(
-        "Сумма: 10 000 рублей.\n"
+        f"Сумма: 12000 рублей.\n"
         "Период списания: 1 раз в месяц.\n"
         "Время на оплату: 30 минут.\n\n"
         "Списания будут происходить автоматически.\n"
@@ -495,11 +473,11 @@ async def choseddep_inline(cb: CallbackQuery, state: FSMContext):
     if username is None:
         await cb.message.edit_text(
             """
-Для корректной работы необходимо в настройках изменить имя пользователя!
-Как это сделать:
-Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
-После изменения @username войдите в бот по ссылке еще раз и нажмите /start
-"""
+            Для корректной работы необходимо в настройках изменить имя пользователя!
+            Как это сделать:
+            Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
+            После изменения @username войдите в бот по ссылке еще раз и нажмите /start
+            """
         )
         return
 
@@ -521,7 +499,7 @@ async def choseddep_inline(cb: CallbackQuery, state: FSMContext):
 
     # ⬇️ всё остальное — разовые платежи
     price_map = {
-        "open": 13070,
+        "open": 13700,
         "three": 30000,
         "halfyear": 60000,
         "year": 120000,
@@ -584,8 +562,7 @@ async def fullnameChoicedDep(message: Message, state: FSMContext):
 
     # --- РЕКУРРЕНТ ---
     if payment_type == "recurrent":
-        await state.finish()
-        await sub_pay_active(message)
+        await sub_pay_active(message, state)
         return
 
     
@@ -614,7 +591,7 @@ async def fullnameChoicedDep(message: Message, state: FSMContext):
 
 
 async def month_one_time(cb: CallbackQuery, state: FSMContext):
-    price = 10000
+    price = 12000
 
     await state.set_state(createDepositState.price.state)
     await state.update_data(price=price)

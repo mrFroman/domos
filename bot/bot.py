@@ -3,9 +3,15 @@ import os
 import requests
 import sys
 import time
+from pathlib import Path
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime
 from subprocess import Popen
+
+# Добавляем корень проекта в sys.path для корректного импорта локального config.py
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from aiogram import Bot, Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -15,8 +21,8 @@ from config import BASE_DIR
 
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
-if WEB_DIR not in sys.path:
-    sys.path.append(WEB_DIR)
+# if WEB_DIR not in sys.path:
+#     sys.path.append(WEB_DIR)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.web.settings")
 django.setup()
 
@@ -129,25 +135,26 @@ async def start_monitors():
         Popen([sys.executable, "-m", "bot.tgbot.handlers.tsmonitor"])
         logger_bot.info("Мониторинг подписок активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.handlers.payment_monitor"])
-        logger_bot.info("Мониторинг оплат активирован")
+        #Popen([sys.executable, "-m", "bot.tgbot.handlers.payment_monitor"])
+        #logger_bot.info("Мониторинг оплат активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.handlers.notifymonitor"])
-        logger_bot.info("Мониторинг оплаты подписки активирован")
+        #Popen([sys.executable, "-m", "bot.tgbot.handlers.notifymonitor"])
+        #logger_bot.info("Мониторинг оплаты подписки активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.handlers.eventsmonitor"])
-        logger_bot.info("Мониторинг событий активирован")
+        #Popen([sys.executable, "-m", "bot.tgbot.handlers.eventsmonitor"])
+        #logger_bot.info("Мониторинг событий активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.handlers.ban_monitor"])
-        logger_bot.info("Мониторинг бана в канале активирован")
+        #Popen([sys.executable, "-m", "bot.tgbot.handlers.ban_monitor"])
+        #logger_bot.info("Мониторинг бана в канале активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.services.monthly_anket"])
-        logger_bot.info("Мониторинг ежемесячного опроса активирован")
+       #Popen([sys.executable, "-m", "bot.tgbot.services.monthly_anket"])
+        #logger_bot.info("Мониторинг ежемесячного опроса активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.services.recurrent_payments"])
-        logger_bot.info("Мониторинг рекуррентных платежей активирован")
+        #Popen([sys.executable, "-m", "bot.tgbot.services.recurrent_payments"])
+        #logger_bot.info("Мониторинг рекуррентных платежей активирован")
 
-        Popen([sys.executable, "-m", "bot.tgbot.services.parse_messages"])
+        #Popen([sys.executable, "-m", "bot.tgbot.services.parse_messages"])
+        
         logger_bot.info("Парсер сообщений из каналов активирован")
     except Exception as e:
         logger_bot.error(f"Ошибка при запуске мониторингов: {e}")

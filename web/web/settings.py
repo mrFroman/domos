@@ -64,31 +64,12 @@ WSGI_APPLICATION = "web.web.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# Поддержка как SQLite, так и PostgreSQL через переменную окружения DB_TYPE
-DB_TYPE = os.getenv("DB_TYPE", "sqlite")
-
-if DB_TYPE == "postgres":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("POSTGRES_DB", "domos"),
-            "USER": os.getenv("POSTGRES_USER", "domos"),
-            "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
-            "HOST": os.getenv("POSTGRES_HOST", "postgres"),
-            "PORT": os.getenv("POSTGRES_PORT", "5432"),
-            "OPTIONS": {
-                "options": "-c search_path=django,public"
-            }
-        }
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
-else:
-    # Текущая SQLite конфигурация
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 
 # Password validation
@@ -140,5 +121,5 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Login settings
 LOGIN_URL = '/auth/login/'
 
-FORCE_SCRIPT_NAME = '/domosclub'
+# FORCE_SCRIPT_NAME = '/domosclub'  # Закомментировано для локальной разработки
 CSRF_TRUSTED_ORIGINS = ["https://neurochief.pro", "https://www.neurochief.pro"]
