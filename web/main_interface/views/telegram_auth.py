@@ -28,8 +28,8 @@ def _expire_previous_session_token(request):
 
 def login(request):
     """Генерируем ссылку для входа через бота"""
-    request_user = str(request.user)
-    if request.user.is_authenticated and request_user:
+    # Редиректим только если пользователь полностью авторизован (есть telegram_id в сессии)
+    if request.user.is_authenticated and request.session.get("telegram_id"):
         return redirect("main_menu")
 
     _expire_previous_session_token(request)

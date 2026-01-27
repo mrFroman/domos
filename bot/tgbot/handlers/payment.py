@@ -274,7 +274,7 @@ async def sub_pay_active_mes(message: types.Message):
     await message.answer(text)
 
 
-async def sub_pay_active(update: Union[Message, CallbackQuery]):
+async def sub_pay_active(update: Union[Message, CallbackQuery], state: FSMContext):
     if isinstance(update, CallbackQuery):
         message = update.message
         user = update.from_user
@@ -283,6 +283,9 @@ async def sub_pay_active(update: Union[Message, CallbackQuery]):
         message = update
         user = update.from_user
         reply = message.answer 
+
+    user_data = await state.get_data()
+    fullname = user_data.get("fullname")
 
     username = user.username
     user_id = user.id
@@ -300,7 +303,7 @@ async def sub_pay_active(update: Union[Message, CallbackQuery]):
 
     _, payment_url = create_recurrent_payment(
         price=int(os.getenv("MOUNTH_SUBSCRIPTION_PRICE", 10000)),
-        desc="Оплата подписки",
+        desc=f"Оплата подписки от\n ФИО: {fullname}",
         user_id=user_id,
     )
 
@@ -316,7 +319,7 @@ async def sub_pay_active(update: Union[Message, CallbackQuery]):
     )
 
     await reply(
-        "Сумма: 10 000 рублей.\n"
+        f"Сумма: 12000 рублей.\n"
         "Период списания: 1 раз в месяц.\n"
         "Время на оплату: 30 минут.\n\n"
         "Списания будут происходить автоматически.\n"
@@ -495,11 +498,11 @@ async def choseddep_inline(cb: CallbackQuery, state: FSMContext):
     if username is None:
         await cb.message.edit_text(
             """
-Для корректной работы необходимо в настройках изменить имя пользователя!
-Как это сделать:
-Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
-После изменения @username войдите в бот по ссылке еще раз и нажмите /start
-"""
+            Для корректной работы необходимо в настройках изменить имя пользователя!
+            Как это сделать:
+            Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
+            После изменения @username войдите в бот по ссылке еще раз и нажмите /start
+            """
         )
         return
 
@@ -521,7 +524,7 @@ async def choseddep_inline(cb: CallbackQuery, state: FSMContext):
 
     # ⬇️ всё остальное — разовые платежи
     price_map = {
-        "open": 13070,
+        "open": 13700,
         "three": 30000,
         "halfyear": 60000,
         "year": 120000,
@@ -584,8 +587,7 @@ async def fullnameChoicedDep(message: Message, state: FSMContext):
 
     # --- РЕКУРРЕНТ ---
     if payment_type == "recurrent":
-        await state.finish()
-        await sub_pay_active(message)
+        await sub_pay_active(message, state)
         return
 
     
@@ -614,7 +616,7 @@ async def fullnameChoicedDep(message: Message, state: FSMContext):
 
 
 async def month_one_time(cb: CallbackQuery, state: FSMContext):
-    price = 10000
+    price = 12000
 
     await state.set_state(createDepositState.price.state)
     await state.update_data(price=price)

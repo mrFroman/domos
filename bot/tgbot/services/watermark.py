@@ -201,3 +201,80 @@ class WatermarkService:
         except Exception as e:
             print(f"Error adding logo: {e}")
             return False
+    
+    @staticmethod
+    async def add_compass_image(
+        image_path: str,
+        output_path: str,
+        compass_path: str,
+        north_angle: Optional[float] = 0,   # угол в градусах
+        position: str = "top-left",
+        scale: float = 0.15,
+        opacity: float = 0.9,
+        margin: int = 20,
+    ) -> bool:
+        """
+        Добавляет круглый компас на изображение с возможностью поворота под любой угол.
+        
+        Args:
+            image_path: путь к исходному изображению
+            output_path: путь для сохранения результата
+            compass_path: путь к изображению компаса (круглый PNG)
+            north_angle: угол поворота компаса (0° = север вверх)
+            position: позиция компаса на изображении (top-left, top-right, bottom-left, bottom-right)
+            scale: масштаб компаса относительно ширины изображения
+            opacity: прозрачность компаса (0-1)
+            margin: отступ от краёв изображения
+        """
+        try:
+            # Чтение исходного изображения и компаса
+            async with aiofiles.open(image_path, "rb") as f:
+                image_data = await f.read()
+            async with aiofiles.open(compass_path, "rb") as f:
+                compass_data = await f.read()
+
+            image = Image.open(io.BytesIO(image_data)).convert("RGBA")
+            compass = Image.open(io.BytesIO(compass_data)).convert("RGBA")
+
+            # Масштаб компаса
+            target_width = int(image.width * scale)
+            ratio = compass.height / compass.width
+            target_height = int(target_width * ratio)
+            compass = compass.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+            # Поворот под север
+            if north_angle:
+                compass = compass.rotate(north_angle, expand=True, resample=Image.Resampling.BICUBIC)
+
+            # Прозрачность
+            if opacity < 1:
+                alpha = compass.getchannel("A")
+                alpha = alpha.point(lambda p: int(p * opacity))
+                compass.putalpha(alpha)
+
+            # Вычисляем позицию
+            if position == "top-left":
+                x, y = margin, margin
+            elif position == "top-right":
+                x, y = image.width - compass.width - margin, margin
+            elif position == "bottom-left":
+                x, y = margin, image.height - compass.height - margin
+            else:  # bottom-right
+                x, y = image.width - compass.width - margin, image.height - compass.height - margin
+
+            # Накладываем компас
+            image.alpha_composite(compass, (x, y))
+
+            # Сохраняем как JPEG
+            result_image = image.convert("RGB")
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            async with aiofiles.open(output_path, "wb") as f:
+                buffer = io.BytesIO()
+                result_image.save(buffer, format="JPEG", quality=95)
+                await f.write(buffer.getvalue())
+
+            return True
+
+        except Exception as e:
+            print(f"Error adding compass image: {e}")
+            return False

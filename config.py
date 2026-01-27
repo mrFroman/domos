@@ -79,25 +79,48 @@ TOPIC_FIRST_MESSAGES = {
     "Контент": 4486,
 }
 
+# Пути для логов
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-# Настройка логирования
-# Создаем директорию для логов, если её нет
-logs_dir = BASE_DIR / "logs"
-logs_dir.mkdir(exist_ok=True)
+# Общий формат
+formatter_bot = logging.Formatter("%(levelname)s: %(asctime)s - Bot: - %(message)s")
+formatter_api = logging.Formatter("%(levelname)s: %(asctime)s - FastAPI: - %(message)s")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(str(logs_dir / "app.log")),
-        logging.StreamHandler()
-    ]
-)
-
-# Логгеры для разных модулей
-logger_api = logging.getLogger("api")
+# Логгер для бота
 logger_bot = logging.getLogger("bot")
+logger_bot.setLevel(logging.INFO)
+
+bot_file_handler = logging.FileHandler(LOG_DIR / "bot.log", encoding="utf-8")
+bot_file_handler.setFormatter(formatter_bot)
+bot_stream_handler = logging.StreamHandler()
+bot_stream_handler.setFormatter(formatter_bot)
+
+logger_bot.addHandler(bot_file_handler)
+logger_bot.addHandler(bot_stream_handler)
+logger_bot.propagate = False
+
+# Логгер для FastAPI
+logger_api = logging.getLogger("api")
+logger_api.setLevel(logging.INFO)
+
+api_file_handler = logging.FileHandler(LOG_DIR / "api.log", encoding="utf-8")
+api_file_handler.setFormatter(formatter_api)
+api_stream_handler = logging.StreamHandler()
+api_stream_handler.setFormatter(formatter_api)
+
+logger_api.addHandler(api_file_handler)
+logger_api.addHandler(api_stream_handler)
+logger_api.propagate = False
+
+# Логгер для веб-приложения
 logger_web = logging.getLogger("web")
+
+# Отключаем шумные библиотеки
+logging.getLogger("apscheduler").setLevel(logging.WARNING)
+logging.getLogger("telethon").setLevel(logging.WARNING)
+logging.getLogger("aiogram").setLevel(logging.WARNING)
+logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 # Функция для загрузки конфигурации (для совместимости со старым кодом)
 def env_bool(name: str, default: bool = False) -> bool:
@@ -112,13 +135,6 @@ def env_list_int(name: str, default: Optional[List[int]] = None) -> List[int]:
 
 
 @dataclass
-class TgBotConfig:
-    token: str = ""
-    admin_ids: List[int] = field(default_factory=list)
-    use_redis: bool = False
-
-
-@dataclass
 class DbConfig:
     host: str = ""
     password: str = ""
@@ -127,36 +143,51 @@ class DbConfig:
 
 
 @dataclass
+class TgBot:
+    token: str = ""
+    admin_ids: List[int] = field(default_factory=list)
+    use_redis: bool = False
+
+
+@dataclass
+class TinkoffConfig:
+    terminal_key: str = ""
+    password: str = ""
+
+
+@dataclass
 class YandexGPTConfig:
     folder_id: str = ""
     api_key: str = ""
     temperature: float = 0.6
     max_tokens: int = 1000
+    model_uri: str = "gpt://{folder_id}/yandexgpt-lite"
+    api_url: str = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
 
 @dataclass
-class OpenAIConfig:
+class OpenAIClient:
     token: str = ""
 
 
 @dataclass
-class MiscConfig:
+class Miscellaneous:
     other_params: Optional[str] = None
 
 
 @dataclass
 class Config:
-    tg_bot: TgBotConfig
+    tg_bot: TgBot
     db: DbConfig
+    tinkoff: TinkoffConfig
     yandex_gpt: YandexGPTConfig
-    open_ai: OpenAIConfig
-    misc: MiscConfig
-
+    open_ai: OpenAIClient
+    misc: Miscellaneous
 
 
 def load_config(env_path=None) -> Config:
-     return Config(
-        tg_bot=TgBotConfig(
+    return Config(
+        tg_bot=TgBot(
             token=os.getenv("BOT_TOKEN", ""),
             admin_ids=env_list_int("ADMINS"),
             use_redis=env_bool("USE_REDIS"),
@@ -167,30 +198,20 @@ def load_config(env_path=None) -> Config:
             user=os.getenv("DB_USER", ""),
             database=os.getenv("DB_NAME", ""),
         ),
+        tinkoff=TinkoffConfig(
+            terminal_key=os.getenv("TINKOFF_TERMINAL_KEY", ""),
+            password=os.getenv("TINKOFF_PASSWORD", ""),
+        ),
         yandex_gpt=YandexGPTConfig(
             folder_id=os.getenv("YANDEX_FOLDER_ID", ""),
             api_key=os.getenv("YANDEX_API_KEY", ""),
             temperature=float(os.getenv("YANDEX_GPT_TEMPERATURE", 0.6)),
             max_tokens=int(os.getenv("YANDEX_GPT_MAX_TOKENS", 1000)),
         ),
-        open_ai=OpenAIConfig(
+        open_ai=OpenAIClient(
             token=os.getenv("OPENAI_API_KEY", ""),
         ),
-        misc=MiscConfig(
+        misc=Miscellaneous(
             other_params=os.getenv("OTHER_PARAMS"),
         ),
     )
-
-
-# def load_config(env_path=None):
-#     """Загружает конфигурацию из .env файла"""
-#     class Config:
-#         class TgBot:
-#             def __init__(self):
-#                 self.token = os.getenv("BOT_TOKEN", "")
-#                 self.use_redis = os.getenv("USE_REDIS", "False").lower() == "true"
-        
-#         def __init__(self):
-#             self.tg_bot = self.TgBot()
-    
-#     return Config()
