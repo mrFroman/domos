@@ -13,3 +13,13 @@ psycopg2-binary==2.9.9
 aiosqlite==0.19.0
 asyncpg==0.29.0
 itsdangerous==2.1.2
+# Bot Framework (нужен для импорта bot.tgbot.handlers.payment_irbis)
+aiogram==2.25.1
+aiohttp==3.8.6
+aiofiles==23.2.1
+magic-filter==1.0.12
+redis==5.0.1
+hiredis==2.3.2
+
+# YooKassa (нужен для payment_irbis)
+yookassa==3.0.0
