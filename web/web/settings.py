@@ -64,12 +64,31 @@ WSGI_APPLICATION = "web.web.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+# Поддержка как SQLite, так и PostgreSQL через переменную окружения DB_TYPE
+DB_TYPE = os.getenv("DB_TYPE", "sqlite")
+
+if DB_TYPE == "postgres":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "domos"),
+            "USER": os.getenv("POSTGRES_USER", "domos"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
+            "HOST": os.getenv("POSTGRES_HOST", "postgres"),
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+            "OPTIONS": {
+                "options": "-c search_path=django,public"
+            }
+        }
     }
-}
+else:
+    # Текущая SQLite конфигурация
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 
 # Password validation
@@ -119,7 +138,21 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Login settings
-LOGIN_URL = '/auth/login/'
+LOGIN_URL = '/auth/login/'  # Авторизация через Telegram токен
+LOGIN_REDIRECT_URL = '/'
 
-# FORCE_SCRIPT_NAME = '/domosclub'  # Закомментировано для локальной разработки
+# Настройки сессий для Safari (более мягкие настройки для локальной разработки)
+SESSION_COOKIE_AGE = 1209600  # 2 недели
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = None  # Отключаем для локальной разработки (Safari может блокировать)
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_SECURE = False  # Для HTTP (локальная разработка)
+
+# Настройки CSRF для Safari
+CSRF_COOKIE_SAMESITE = None  # Отключаем для локальной разработки
+CSRF_COOKIE_HTTPONLY = False  # Для локальной разработки
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SECURE = False  # Для HTTP (локальная разработка)
+
+# FORCE_SCRIPT_NAME = '/domosclub'  # Отключено для локальной разработки
 CSRF_TRUSTED_ORIGINS = ["https://neurochief.pro", "https://www.neurochief.pro"]

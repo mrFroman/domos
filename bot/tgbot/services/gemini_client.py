@@ -38,19 +38,40 @@ style_image_path = os.path.join(
 
 def force_black_walls_white_background(image_path: str) -> None:
     """
-    Приводит сгенерированное изображение плана к чёрно‑белому стилю:
-    чёрные линии, белый фон.
+    Постобработка: улучшает качество, резкость и контраст.
+    Сохраняет в PNG для максимального качества.
     """
     try:
-        img = Image.open(image_path).convert("L")  # градации серого
-
-        # Простой порог: фон светлый → становится чисто белым, линии тёмные → чёрные
-        threshold = 200
-        bw = img.point(lambda v: 255 if v > threshold else 0, mode="L")
-
-        bw.save(image_path, format="JPEG", quality=95)
+        from PIL import ImageFilter, ImageOps, ImageEnhance
+        
+        # Открываем изображение
+        img = Image.open(image_path)
+        
+        # 1. Увеличиваем контраст для чёткости
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(1.2)
+        
+        # 2. Увеличиваем резкость
+        sharpness = ImageEnhance.Sharpness(img)
+        img = sharpness.enhance(1.5)
+        
+        # 3. Делаем фон чище (автоуровни)
+        img = ImageOps.autocontrast(img, cutoff=0.5)
+        
+        # 4. Сохраняем как PNG (без потери качества)
+        png_path = image_path.rsplit('.', 1)[0] + '.png'
+        img.save(png_path, format="PNG", optimize=True)
+        
+        # Удаляем старый jpg если он отличается
+        import os
+        if png_path != image_path and os.path.exists(image_path):
+            os.remove(image_path)
+        
+        logger_bot.info("[Plan] Качество улучшено, сохранено как PNG")
+        return png_path
     except Exception as e:
-        logger_bot.info(f"[Plan B/W normalize error] {e}")
+        logger_bot.info(f"[Plan normalize error] {e}")
+        return image_path
 
 DIRECTION_ANGLES = {
     "север": 0,
@@ -262,38 +283,44 @@ Any missing or extra element is an error.
 
 
 PROMPT = """
-Три обязательных правила. Нарушать нельзя.
+ENHANCE this floor plan image.
 
-ПРАВИЛО 1 — ЕДИНЫЙ Ч/Б СТИЛЬ:
-- У тебя два изображения: (1) план квартиры пользователя, (2) образец стиля.
-- Стиль линий и текста на результате всегда один и тот же: белый фон, только чёрные
-  линии. Никаких серых, цветных линий, текстур, заливок и теней.
-- Все стены, контуры мебели, размерные линии и весь текст рисуются только чёрным по
-  абсолютно белому фону. Остальные области должны быть чисто белыми.
-- Из образца стиля берёшь только внешний вид линий и подписей (толщина линий, вид
-  шрифта). Планировку и мебель из образца не копируешь.
+IMPROVE (make better looking):
+✓ Lines - make them straight, clean, sharp
+✓ Furniture shapes - make them cleaner, more detailed
+✓ Walls - make them uniform dark gray
+✓ Background - make it pure white
+✓ Overall quality - high resolution, professional look
 
-ПРАВИЛО 2 — НЕ ДВИГАТЬ:
-- Предметы и мебель должны оставаться на тех же местах, в той же ориентации.
-- Запрещено двигать, перемещать, поворачивать, переворачивать стены, двери, окна,
-  мебель (кровати, диваны, столы, шкафы и т.п.). Рисуешь каждый объект там же, где
-  он на присланном плане.
+TEXT - UNIFIED FONT:
+✓ Find ALL text on the image (handwritten, printed, any style)
+✓ Convert ALL text to: ARIAL BOLD font, BLACK color
+✓ Same font for ALL images - always Arial Bold
+✓ Keep text in SAME position
+✓ Keep SAME text content (same words, same numbers)
+✓ Text must be HORIZONTAL and clearly readable
+✓ Dimensions/measurements: use same Arial Bold font
+✓ If text is unclear - leave blank, do not guess
 
-ПРАВИЛО 3 — НЕ ДОБАВЛЯТЬ ТЕКСТ:
-- Надписи и размеры рисуешь только если они есть на присланной пользователем картинке.
-- Запрещено придумывать новую текстовую информацию: нельзя добавлять подписи комнат,
-  новые слова, переводы (например, «living room»), сокращения, дополнительные числа
-  или пояснения, если их нет на исходном изображении.
-- Нельзя менять текстовое содержимое: не переводить, не перефразировать, не заменять
-  слова и числа на другие значения.
+DO NOT CHANGE:
+✗ Positions - everything stays in same place
+✗ Layout - same room arrangement
+✗ Object count - same number of items
+✗ Nothing moves left/right/up/down
+✗ Text content - same words and numbers
 
-ЧТО ДЕЛАТЬ:
-- Перерисовать присланный план в стиле образца: те же линии и тот же вид текста.
-- Сохранить всё на тех же местах. Удалить все цвета/текстуры и оставить только
-  чёрные линии на белом фоне. Не добавлять лишнего.
-- Любой текст на плане (рукописный или печатный) переписать аккуратным печатным
-  шрифтом (как на образце стиля), посимвольно сохраняя те же слова и те же числовые
-  значения. Можно очищать написание, но нельзя менять смысл и добавлять новые слова.
+ABSOLUTELY FORBIDDEN:
+✗ Moving furniture to different location
+✗ Adding new furniture
+✗ Adding NEW text or labels
+✗ Removing any objects
+✗ Rotating objects
+✗ Changing text content
+
+SIMPLE RULE:
+Same picture, better quality.
+Same text, printed font.
+Enhance, don't redesign.
 """
 
 async def generate_plan_from_image(image_path: str, text: str) -> str:
@@ -304,13 +331,9 @@ async def generate_plan_from_image(image_path: str, text: str) -> str:
             image_bytes = f.read()
         encoded_image = base64.b64encode(image_bytes).decode("utf-8")
 
-        # style reference image (for unified line/text style only)
-        try:
-            with open(style_image_path, "rb") as sf:
-                style_bytes = sf.read()
-            encoded_style_image = base64.b64encode(style_bytes).decode("utf-8")
-        except Exception:
-            encoded_style_image = None
+        # НЕ отправляем style reference - описываем стиль текстом
+        style_bytes = None
+        encoded_style_image = None
 
         max_attempts = 5
 
@@ -383,23 +406,36 @@ async def generate_plan_from_image(image_path: str, text: str) -> str:
                             # считаем это ошибкой (она просто отдала вход) и пробуем ещё раз
                             if img_bytes == image_bytes:
                                 logger_bot.info(
-                                    "[WARN] Модель вернула исходное изображение без изменений, усиливаем инструкцию и повторяем попытку."
+                                    "[WARN] Модель вернула исходное изображение без изменений, повторяем попытку."
                                 )
                                 current_prompt = (
                                     base_prompt
-                                    + "\n\nCRITICAL: You incorrectly returned the original image. "
-                                    "You MUST redraw it in the unified CAD style with normalized line and text style. "
-                                    "Do NOT return the input image or a pixel-identical copy."
+                                    + "\n\nCRITICAL: You returned the original input image. "
+                                    "You MUST redraw it in the style of Image 2. "
+                                    "Do NOT return the input image."
+                                )
+                                break
+                            
+                            # Если модель вернула образец стиля (floor.png) - это тоже ошибка
+                            if style_bytes and img_bytes == style_bytes:
+                                logger_bot.info(
+                                    "[WARN] Модель вернула образец стиля (floor.png), повторяем попытку."
+                                )
+                                current_prompt = (
+                                    base_prompt
+                                    + "\n\nCRITICAL: You returned the style reference image (Image 2). "
+                                    "You MUST redraw Image 1 using the style of Image 2. "
+                                    "Do NOT return Image 2 itself."
                                 )
                                 break
 
-                            out_path = f"outputs/plan_{uuid.uuid4().hex}.jpg"
+                            out_path = f"outputs/plan_{uuid.uuid4().hex}.png"
                             os.makedirs("outputs", exist_ok=True)
                             with open(out_path, "wb") as wf:
                                 wf.write(img_bytes)
 
-                            # Жёстко приводим план к чёрным линиям на белом фоне
-                            force_black_walls_white_background(out_path)
+                            # Улучшаем качество и сохраняем как PNG
+                            out_path = force_black_walls_white_background(out_path) or out_path
 
                             await WatermarkService.add_corner_logo(
                                 image_path=str(out_path),
@@ -432,13 +468,22 @@ async def generate_plan_from_image(image_path: str, text: str) -> str:
                 if url_or_data and url_or_data.startswith("data:image"):
                     prefix, b64data = url_or_data.split(",", 1)
                     img_bytes = base64.b64decode(b64data)
-                    out_path = f"outputs/plan_{uuid.uuid4().hex}.jpg"
+                    
+                    # Проверка: не вернула ли модель исходное изображение или образец стиля
+                    if img_bytes == image_bytes:
+                        logger_bot.info("[WARN] Fallback: модель вернула исходное изображение")
+                        continue
+                    if style_bytes and img_bytes == style_bytes:
+                        logger_bot.info("[WARN] Fallback: модель вернула образец стиля")
+                        continue
+                    
+                    out_path = f"outputs/plan_{uuid.uuid4().hex}.png"
                     os.makedirs("outputs", exist_ok=True)
                     with open(out_path, "wb") as wf:
                         wf.write(img_bytes)
 
-                    # Жёстко приводим план к чёрным линиям на белом фоне
-                    force_black_walls_white_background(out_path)
+                    # Улучшаем качество и сохраняем как PNG
+                    out_path = force_black_walls_white_background(out_path) or out_path
 
                     await WatermarkService.add_corner_logo(
                         image_path=str(out_path),

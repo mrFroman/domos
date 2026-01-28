@@ -18,6 +18,7 @@ from .payment_menu import download_offer, payment_menu, payment_sub_check
 from .lawyer_menu import lawyer_menu, upload_lawyer_file
 from .irbis import irbis_menu, irbis_payment_check
 from .telegram_auth import login, telegram_auth_callback, check_telegram_token
+from .phone_auth import phone_login, phone_enter_telegram_id, phone_verify_code, resend_code
 from .admin_dashboard import (
     admin_add_contact,
     admin_add_realtor,

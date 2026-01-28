@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Вход по номеру телефона</span>
+            <span class="menu-label">Введите ваш номер телефона для получения кода подтверждения</span>
+        </div>
+        
+        {% if error_message %}
+            <div class="error-message" style="background: #ff4444; color: white; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                {{ error_message }}
+            </div>
+        {% endif %}
+        
+        <form method="post" action="{% url 'phone_login' %}">
+            {% csrf_token %}
+            <div class="menu-row single">
+                <input 
+                    type="tel" 
+                    name="phone" 
+                    placeholder="+7 (999) 123-45-67" 
+                    class="menu-input"
+                    required
+                    autofocus
+                    pattern="[\+]?[7-8]?[\s\-]?\(?[0-9]{3}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}"
+                    style="width: 100%; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); font-size: 16px; margin-bottom: 16px;"
+                />
+            </div>
+            <div class="menu-row single">
+                <button type="submit" class="menu-btn full">
+                    Получить код
+                </button>
+            </div>
+        </form>
+        
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+            <p style="color: var(--text-secondary); font-size: 14px; text-align: center;">
+                Код подтверждения будет отправлен вам в Telegram бот
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Маска для номера телефона
+        document.querySelector('input[name="phone"]').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            
+            if (value.startsWith('8')) {
+                value = '7' + value.substring(1);
+            }
+            
+            if (value.startsWith('7') && value.length <= 11) {
+                let formatted = '+7';
+                if (value.length > 1) {
+                    formatted += ' (' + value.substring(1, 4);
+                }
+                if (value.length >= 4) {
+                    formatted += ') ' + value.substring(4, 7);
+                }
+                if (value.length >= 7) {
+                    formatted += '-' + value.substring(7, 9);
+                }
+                if (value.length >= 9) {
+                    formatted += '-' + value.substring(9, 11);
+                }
+                e.target.value = formatted;
+            } else if (value.length > 0) {
+                e.target.value = '+' + value;
+            }
+        });
+    </script>
+{% endblock %}

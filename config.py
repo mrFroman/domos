@@ -16,6 +16,9 @@ YEKATERINBURG_TZ = pytz.timezone("Asia/Yekaterinburg")
 # Базовый путь к проекту
 BASE_DIR = Path(__file__).resolve().parents[0]
 
+# Тип базы данных (sqlite или postgres)
+DB_TYPE = os.getenv("DB_TYPE", "sqlite")
+
 # Путь к файлу с позициями рекламы
 ADVERT_POSITIONS_FILE = os.path.join(
     BASE_DIR,
@@ -25,17 +28,13 @@ ADVERT_POSITIONS_FILE = os.path.join(
     "advert_positions.json",
 )
 
-# Пути к базам данных
-MAIN_DB_PATH = os.path.join(BASE_DIR, "bot", "tgbot", "databases", "data.db")
-AUDIO_DB_PATH = os.path.join(
-    BASE_DIR, "bot", "tgbot", "databases", "downloaded_audio.db"
-)
-USEFULL_MESSAGES_DB_PATH = os.path.join(
-    BASE_DIR, "bot", "tgbot", "databases", "useful_messages.db"
-)
-VECTOR_DB_PATH = os.path.join(BASE_DIR, "bot", "tgbot", "vector_index")
-ADVERT_TOKENS_DB_PATH = os.path.join(BASE_DIR, "api", "advert_tokens.db")
-CONTRACT_TOKENS_DB_PATH = os.path.join(BASE_DIR, "api", "contract_tokens.db")
+# Пути к базам данных (читаем из env для Docker, иначе локальные SQLite)
+MAIN_DB_PATH = os.getenv("MAIN_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "data.db"))
+AUDIO_DB_PATH = os.getenv("AUDIO_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "downloaded_audio.db"))
+USEFULL_MESSAGES_DB_PATH = os.getenv("USEFULL_MESSAGES_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "useful_messages.db"))
+VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "vector_index"))
+ADVERT_TOKENS_DB_PATH = os.getenv("ADVERT_TOKENS_DB_PATH", os.path.join(BASE_DIR, "api", "advert_tokens.db"))
+CONTRACT_TOKENS_DB_PATH = os.getenv("CONTRACT_TOKENS_DB_PATH", os.path.join(BASE_DIR, "api", "contract_tokens.db"))
 
 # Константы для работы с супергруппой
 TOPIC_MAP = {
