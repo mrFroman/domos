@@ -86,16 +86,17 @@ telethon==1.34.0
 openai==1.54.5
 
 # LangChain (для vector_index, request_from_db, yandex_gpt_handler)
+# Используем совместимые версии 0.3.x
 langchain-community==0.3.5
-langchain-core==0.3.5
+langchain-core>=0.3.15,<0.4.0
 langchain-openai==0.2.0
 langchain-text-splitters==0.3.0
-faiss-cpu==1.8.0.post1  # Для FAISS vector store
+faiss-cpu==1.13.2  # Для FAISS vector store
 pypdf==5.1.0  # Для PyPDFLoader
-unstructured==0.16.15  # Для UnstructuredWordDocumentLoader, UnstructuredExcelLoader
+unstructured==0.18.31  # Для UnstructuredWordDocumentLoader, UnstructuredExcelLoader
 
 # Yandex Cloud ML SDK (для pdf_assistant)
-yandex-cloud-ml-sdk==0.1.0
+yandex-cloud-ml-sdk==0.19.1
 
 # Computer Vision (для image_processor)
 opencv-python==4.10.0.84
