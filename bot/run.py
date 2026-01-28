@@ -6,50 +6,27 @@ import time
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import datetime
 from subprocess import Popen
-from pathlib import Path
+
 from aiogram import Bot, Dispatcher
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.fsm_storage.redis import RedisStorage2
+import django
 from config import BASE_DIR
 
+# Добавляем корневую директорию проекта в sys.path для доступа к модулям
+# Это нужно для того, чтобы Django мог найти web.web.settings
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
+# Добавляем директорию web в sys.path для Django (как в manage.py)
+WEB_DIR = os.path.join(BASE_DIR, "web")
+if WEB_DIR not in sys.path:
+    sys.path.append(WEB_DIR)
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-
-# гарантируем /app в sys.path
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
-
+# Устанавливаем модуль настроек Django
+# Структура: /app/web/web/settings.py, поэтому используем web.web.settings
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.web.settings")
-
-import django
 django.setup()
-
-# WEB_DIR = os.path.join(BASE_DIR, "web")
-# import django
-
-# # Убеждаемся что BASE_DIR в начале sys.path (для Docker)
-# base_dir_str = str(BASE_DIR)
-# if base_dir_str not in sys.path:
-#     sys.path.insert(0, base_dir_str)
-
-# # Пробуем определить правильный settings модуль
-# # Сначала пробуем web.main_interface (для Docker, когда /app в PYTHONPATH)
-# # Импортируем main_interface ПЕРЕД settings, чтобы проверить что /app в sys.path
-# try:
-#     import web.main_interface  # Проверяем что main_interface доступен (значит /app в sys.path)
-#     import web.web.settings
-#     # Если импорт успешен, используем web.web.settings
-#     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.web.settings")
-# except ImportError:
-#     # Если не получилось, добавляем WEB_DIR и используем web.settings
-#     if WEB_DIR not in sys.path:
-#         sys.path.insert(0, WEB_DIR)
-#     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
-
-# django.setup()
-
-    
 
 from bot.tgbot.filters.admin import AdminFilter
 # from bot.tgbot.handlers.admin import register_admin
@@ -255,3 +232,4 @@ if __name__ == "__main__":
             f"https://api.telegram.org/bot{config.tg_bot.token}/sendMessage?chat_id={-1002294501707}&text={text}&parse_mode=HTML"
         )
         logger_bot.error(f"Бот остановлен! Ошибка: {error}")
+

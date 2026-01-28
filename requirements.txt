@@ -11,11 +11,12 @@ uvicorn[standard]==0.32.0
 starlette==0.38.0
 pydantic==2.7.4
 pydantic_core==2.18.4
+python-multipart
 
 # Bot Framework
 aiogram==2.25.1  # Версия для совместимости
 aiohttp==3.8.6  # Совместимо с aiogram 2.25.1
-aiofiles==23.2.1
+aiofiles==24.1.0
 
 # Database
 psycopg2-binary==2.9.9  # PostgreSQL
