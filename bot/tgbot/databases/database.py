@@ -114,6 +114,10 @@ class DatabaseConnection:
         if self.db_type == "postgres":
             query = self._adapt_sql_for_postgres(query)
         
+        # Определяем, нужно ли возвращать результаты
+        query_upper = query.strip().upper()
+        is_select = query_upper.startswith("SELECT") or "RETURNING" in query_upper
+        
         with self.get_connection() as conn:
             if self.db_type == "postgres":
                 with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -122,7 +126,9 @@ class DatabaseConnection:
                     else:
                         cur.execute(query)
                     conn.commit()
-                    return cur.fetchall()
+                    if is_select:
+                        return cur.fetchall()
+                    return []
             else:
                 cur = conn.cursor()
                 if params:
@@ -130,7 +136,9 @@ class DatabaseConnection:
                 else:
                     cur.execute(query)
                 conn.commit()
-                return cur.fetchall()
+                if is_select:
+                    return cur.fetchall()
+                return []
     
     def execute_many(self, query: str, params_list: List[Union[tuple, dict]]):
         """
