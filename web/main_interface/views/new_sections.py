@@ -54,8 +54,8 @@ def assistant_view(request):
 
     context = {
         "user": user,
-        "username": user["fullName"],
-        "user_id": int(user["user_id"]),
+        "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+        "user_id": int(user.get("user_id") or telegram_id),
         "title": "Помощник - DomosClub",
         "page_title": "Ваш персональный помощник Domos",
         "page_subtitle": "Задайте вопрос или выберите действие",
@@ -128,8 +128,8 @@ def services_view(request):
 
     context = {
         "user": user,
-        "username": user["fullName"],
-        "user_id": int(user["user_id"]),
+        "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+        "user_id": int(user.get("user_id") or telegram_id),
         "title": "Сервисы - DomosClub",
         "page_title": "Сервисы",
         "page_subtitle": "Все доступные инструменты в одном месте",
@@ -160,8 +160,8 @@ def subscriptions_view(request):
 
     context = {
         "user": user,
-        "username": user["fullName"],
-        "user_id": int(user["user_id"]),
+        "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+        "user_id": int(user.get("user_id") or telegram_id),
         "title": "Подписки и оплаты - DomosClub",
         "page_title": "Подписки и оплаты",
         "page_subtitle": "Управление подпиской и история платежей",
@@ -194,8 +194,8 @@ def my_requests_view(request):
 
     context = {
         "user": user,
-        "username": user["fullName"],
-        "user_id": int(user["user_id"]),
+        "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+        "user_id": int(user.get("user_id") or telegram_id),
         "title": "Мои заявки - DomosClub",
         "page_title": "Мои заявки",
         "page_subtitle": "История всех ваших заявок",
@@ -227,8 +227,8 @@ def admin_dashboard_view(request):
 
     context = {
         "user": user,
-        "username": user["fullName"],
-        "user_id": int(user["user_id"]),
+        "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+        "user_id": int(user.get("user_id") or telegram_id),
         "title": "Админ-панель - DomosClub",
         "page_title": "Панель администратора",
         "page_subtitle": "Управление платформой",

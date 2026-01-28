@@ -53,8 +53,8 @@ def irbis_menu(request):
     if banned != 0:
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "error": "⭕ Доступ запрещен",
         }
@@ -65,8 +65,8 @@ def irbis_menu(request):
     if payed != 1:
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "error": "⭕ Сначала оплатите подписку!",
         }
@@ -79,8 +79,8 @@ def irbis_menu(request):
 
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "payment",
             "payment_id": payment_id,
@@ -95,8 +95,8 @@ def irbis_menu(request):
 
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "payment",
             "payment_id": payment_id,
@@ -111,8 +111,8 @@ def irbis_menu(request):
 
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "check_payment",
             "payment_id": payment_id,
@@ -124,8 +124,8 @@ def irbis_menu(request):
     elif step == "select_type":
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "select_type",
         }
@@ -135,8 +135,8 @@ def irbis_menu(request):
     elif step == "check_jur":
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "check_jur",
             "form_url": (f"https://neurochief.pro/org_check?user_id={telegram_id}"),
@@ -147,8 +147,8 @@ def irbis_menu(request):
     elif step == "check_fiz":
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "check_fiz",
             "form_url": (f"https://neurochief.pro/people_check?user_id={telegram_id}"),
@@ -159,8 +159,8 @@ def irbis_menu(request):
     elif step == "check_realty":
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "check_realty",
             "form_url": (f"https://neurochief.pro/house_check?user_id={telegram_id}"),
@@ -174,8 +174,8 @@ def irbis_menu(request):
 
         context = {
             "user": user,
-            "username": user["fullName"],
-            "user_id": int(user["user_id"]),
+            "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+            "user_id": int(user.get("user_id") or telegram_id),
             "title": "DomosClub",
             "step": "payment",
             "payment_id": payment_id,

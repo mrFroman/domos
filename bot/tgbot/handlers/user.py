@@ -1,3 +1,4 @@
+import os
 from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import Message, CallbackQuery
@@ -5,6 +6,8 @@ from aiogram.types import Message, CallbackQuery
 from bot.tgbot.keyboards.inline import *
 from bot.tgbot.databases.pay_db import *
 from bot.tgbot.services.telegram_token_service import TelegramTokenService
+
+SITE_URL = os.getenv("SITE_URL", "http://localhost:8002")
 
 
 async def user_start(message: Message, state: FSMContext):
@@ -32,9 +35,7 @@ async def user_start(message: Message, state: FSMContext):
             unique_code,
             message.from_user.id,
         ):
-            # TODO На сервере должен быть урл с доменом
-            # site_login_url = f"http://127.0.0.1:8002/auth/telegram/?token={unique_code}"
-            site_login_url = f"https://neurochief.pro/domosclub/auth/telegram/?token={unique_code}"
+            site_login_url = f"{SITE_URL}/auth/telegram/?token={unique_code}"
             await message.reply(
                 f'<a href="{site_login_url}">Войти на сайт через телеграм</a>',
                 parse_mode="HTML",

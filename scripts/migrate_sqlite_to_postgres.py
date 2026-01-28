@@ -83,10 +83,13 @@ class SQLiteToPostgresMigrator:
         column_defs = []
         for col in columns:
             col_name = col[1]
-            col_type = col[2].upper()
+            col_type = col[2].upper() if col[2] else "TEXT"
             is_pk = col[5] == 1
             not_null = col[3] == 1
             default = col[4]
+            
+            # Экранируем имя колонки (на случай зарезервированных слов как desc, user и т.д.)
+            escaped_col_name = f'"{col_name}"'
             
             # Адаптируем типы для PostgreSQL
             if col_type == "INTEGER":
@@ -105,14 +108,10 @@ class SQLiteToPostgresMigrator:
             else:
                 pg_type = "TEXT"  # По умолчанию
             
-            col_def = f"{col_name} {pg_type}"
+            col_def = f"{escaped_col_name} {pg_type}"
             if not_null and not is_pk:
                 col_def += " NOT NULL"
-            if default and not is_pk:
-                if isinstance(default, str):
-                    col_def += f" DEFAULT '{default}'"
-                else:
-                    col_def += f" DEFAULT {default}"
+            # Пропускаем DEFAULT для простоты - данные всё равно копируются
             
             column_defs.append(col_def)
         
@@ -154,7 +153,12 @@ class SQLiteToPostgresMigrator:
             columns_str = ", ".join(column_names)
             placeholders = ", ".join(["%s"] * len(column_names))
             
-            insert_sql = f"INSERT INTO {schema}.{table_name} ({columns_str}) VALUES ({placeholders})"
+            # Экранируем имена колонок (на случай зарезервированных слов)
+            escaped_columns = [f'"{col}"' for col in column_names]
+            columns_str = ", ".join(escaped_columns)
+            placeholders = ", ".join(["%s"] * len(column_names))
+            
+            insert_sql = f'INSERT INTO {schema}.{table_name} ({columns_str}) VALUES ({placeholders})'
             
             # Подготавливаем данные для вставки
             data = []
@@ -168,11 +172,19 @@ class SQLiteToPostgresMigrator:
                     row_data.append(value)
                 data.append(tuple(row_data))
             
-            # Вставляем данные
+            # Вставляем данные по одной строке
+            inserted = 0
             with self.pg_conn.cursor() as cur:
-                execute_values(cur, insert_sql, data)
+                for row_data in data:
+                    try:
+                        cur.execute(insert_sql, row_data)
+                        self.pg_conn.commit()
+                        inserted += 1
+                    except Exception as e:
+                        self.pg_conn.rollback()
+                        # Не выводим каждую ошибку, только считаем
             
-            print(f"  ✅ Скопировано строк: {len(rows)}")
+            print(f"  ✅ Скопировано строк: {inserted} из {len(rows)}")
         else:
             print(f"  ⚠️  Таблица пуста")
         

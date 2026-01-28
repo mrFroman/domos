@@ -18,16 +18,33 @@ def events_menu(request):
     events = getEvents()
     out_events = []
     for event in events:
-        if event[2] < now:  # если дата события меньше текущего времени
+        # Поддержка как словаря (PostgreSQL), так и кортежа (SQLite)
+        if isinstance(event, dict):
+            event_date = event.get("date", 0)
+            event_id = event.get("event_id", 0)
+            event_title = event.get("title", "")
+            event_name = event.get("name", "")
+        else:
+            event_date = event[2]
+            event_id = event[0]
+            event_title = event[3]
+            event_name = event[5]
+        
+        try:
+            event_date = float(event_date) if event_date else 0
+        except (ValueError, TypeError):
+            event_date = 0
+            
+        if event_date < now:  # если дата события меньше текущего времени
             continue
-        dt_object = datetime.fromtimestamp(event[2]).strftime("%d-%m-%Y %H:%M")
+        dt_object = datetime.fromtimestamp(event_date).strftime("%d-%m-%Y %H:%M")
         out_events.append(
             {
-                "id": event[0],  # event_id
-                "title": event[3],  # title
-                "name": event[5],  # name
+                "id": event_id,
+                "title": event_title,
+                "name": event_name,
                 "date": dt_object,
-                "display_text": f"{event[3]} [{dt_object}]",
+                "display_text": f"{event_title} [{dt_object}]",
             }
         )
 
@@ -51,25 +68,45 @@ def event_detail(request, event_id):
     if not event:
         return redirect("events_menu")
 
-    # Структура события: event[0]=id, event[1]=desc, event[2]=date,
-    # event[3]=title, event[4]=link, event[5]=name, event[6]=photo
-    dt_object = datetime.fromtimestamp(event[2]).strftime("%d-%m-%Y %H:%M")
+    # Поддержка как словаря (PostgreSQL), так и кортежа (SQLite)
+    if isinstance(event, dict):
+        e_id = event.get("event_id", 0)
+        e_desc = event.get("desc", "")
+        e_date = event.get("date", 0)
+        e_title = event.get("title", "")
+        e_link = event.get("link", "")
+        e_name = event.get("name", "")
+        e_photo = event.get("photo", "")
+    else:
+        e_id = event[0]
+        e_desc = event[1]
+        e_date = event[2]
+        e_title = event[3]
+        e_link = event[4]
+        e_name = event[5]
+        e_photo = event[6]
+
+    try:
+        e_date = float(e_date) if e_date else 0
+    except (ValueError, TypeError):
+        e_date = 0
+    dt_object = datetime.fromtimestamp(e_date).strftime("%d-%m-%Y %H:%M")
 
     # Проверяем, является ли photo валидным URL (не file_id)
-    photo = event[6]
+    photo = e_photo
     if photo and photo != "0" and not photo.startswith("http"):
         photo = None  # file_id не подходит для веб-интерфейса
 
     context = {
         "title": "DomosClub",
-        "page_title": event[5] if event[5] else event[3],
+        "page_title": e_name if e_name else e_title,
         "event": {
-            "id": event[0],
-            "title": event[3],
-            "name": event[5],
-            "description": event[1],
+            "id": e_id,
+            "title": e_title,
+            "name": e_name,
+            "description": e_desc,
             "date": dt_object,
-            "link": event[4],
+            "link": e_link,
             "photo": photo,
         },
     }
