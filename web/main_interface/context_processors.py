@@ -23,7 +23,7 @@ def user_context(request):
             if telegram_id is not None:
                 try:
                     user = get_user_by_user_id(telegram_id)
-                    context["username"] = user.get("fullName", "Пользователь")
+                    context["username"] = user.get("fullname") or user.get("fullName") or "Пользователь"
                     context["is_admin"] = _is_admin(telegram_id)
                 except Exception:
                     pass

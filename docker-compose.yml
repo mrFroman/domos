@@ -95,18 +95,25 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      - PYTHONPATH=/app
       - DATABASE_URL=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
+      - MAIN_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
       - DB_TYPE=${DB_TYPE:-postgres}
       - POSTGRES_DB=${POSTGRES_DB:-domos}
       - POSTGRES_USER=${POSTGRES_USER:-domos}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
+      - BOT_USERNAME=${BOT_USERNAME:-TestANDpy_bot}
     ports:
       - "${WEB_PORT:-8002}:8002"
     volumes:
       - ./web:/app/web
+<<<<<<< HEAD
       - ./static:/app/static
+=======
+      - ./bot:/app/bot
+>>>>>>> 5e0998c (feat: web UI и авторизация, PostgreSQL совместимость, AI генерация без лишнего текста)
       - ./manage.py:/app/manage.py:ro
       - ./config.py:/app/config.py:ro
     command: python manage.py runserver 0.0.0.0:8002
@@ -128,6 +135,7 @@ services:
       - MAIN_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
       - DB_TYPE=${DB_TYPE:-postgres}
       - BOT_TOKEN=${BOT_TOKEN}
+<<<<<<< HEAD
       - PYTHONPATH=/app
     volumes:
       - ./bot:/app/bot
@@ -135,6 +143,21 @@ services:
       - ./config.py:/app/config.py:ro
       - ./images:/app/images
       - ./run_bot.py:/app/run_bot.py:ro
+=======
+      - POSTGRES_DB=${POSTGRES_DB:-domos}
+      - POSTGRES_USER=${POSTGRES_USER:-domos}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+    volumes:
+      - ./bot:/app/bot
+      - ./web:/app/web
+      - ./scripts:/app/scripts
+      - ./config.py:/app/config.py
+      - ./run_bot.py:/app/run_bot.py:ro
+      - ./images:/app/images
+      - ./manage.py:/app/manage.py:ro
+>>>>>>> 5e0998c (feat: web UI и авторизация, PostgreSQL совместимость, AI генерация без лишнего текста)
     command: python run_bot.py
     restart: unless-stopped
     networks:

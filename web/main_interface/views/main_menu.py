@@ -46,11 +46,14 @@ def main_menu(request):
         return redirect("telegram_login_redirect")
 
     user = get_user_by_user_id(telegram_id)
+    
+    if not user:
+        user = {}
 
     context = {
         "user": user,
-        "username": user["fullName"],
-        "user_id": int(user["user_id"]),
+        "username": user.get("fullname") or user.get("fullName") or "Пользователь",
+        "user_id": int(user.get("user_id") or telegram_id),
         "title": "DomosClub",
         "page_title": "Вы в главном меню DomosClub",
         "is_admin": _is_admin(telegram_id),

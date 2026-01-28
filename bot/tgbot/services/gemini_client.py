@@ -292,34 +292,37 @@ IMPROVE (make better looking):
 ✓ Background - make it pure white
 ✓ Overall quality - high resolution, professional look
 
-TEXT - UNIFIED FONT:
-✓ Find ALL text on the image (handwritten, printed, any style)
-✓ Convert ALL text to: ARIAL BOLD font, BLACK color
-✓ Same font for ALL images - always Arial Bold
+TEXT RULES - VERY IMPORTANT:
+✓ ONLY redraw text that is CLEARLY VISIBLE on the original image
+✓ ALL text must use EXACTLY this font: Arial Bold, BLACK color, size 12-14pt
+✓ UNIFIED FONT - every single text element uses the same Arial Bold
+✓ Numbers, labels, dimensions - all Arial Bold
 ✓ Keep text in SAME position
 ✓ Keep SAME text content (same words, same numbers)
-✓ Text must be HORIZONTAL and clearly readable
-✓ Dimensions/measurements: use same Arial Bold font
-✓ If text is unclear - leave blank, do not guess
+✗ If text is unclear or unreadable - LEAVE IT BLANK, do not write anything
+✗ NEVER add your own text
+✗ NEVER write room names (like "kitchen", "bedroom", "bathroom")
+✗ NEVER add labels or annotations
+✗ NEVER guess what text should say
 
 DO NOT CHANGE:
 ✗ Positions - everything stays in same place
 ✗ Layout - same room arrangement
 ✗ Object count - same number of items
 ✗ Nothing moves left/right/up/down
-✗ Text content - same words and numbers
 
-ABSOLUTELY FORBIDDEN:
+ABSOLUTELY FORBIDDEN - ZERO TOLERANCE:
+✗ WRITING ANY NEW TEXT that was not on the original
+✗ Adding room names or labels
+✗ Adding dimensions that were not there
 ✗ Moving furniture to different location
 ✗ Adding new furniture
-✗ Adding NEW text or labels
 ✗ Removing any objects
 ✗ Rotating objects
-✗ Changing text content
 
 SIMPLE RULE:
 Same picture, better quality.
-Same text, printed font.
+If no text on original - no text on result.
 Enhance, don't redesign.
 """
 

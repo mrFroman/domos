@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 
 from asgiref.sync import sync_to_async
 
@@ -7,6 +8,12 @@ from config import BASE_DIR
 
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
+
+# Настраиваем Django перед импортом моделей
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.web.settings")
+import django
+django.setup()
+
 from web.main_interface.models import TelegramToken
 
 
@@ -33,6 +40,15 @@ class TelegramTokenService:
                 print(f"Сработало условие 2: Токен {token} истёк (создан: {telegram_token.created_at})")
                 return False
 
+            # Если токен уже обработан для этого же пользователя - это ОК
+            if telegram_token.status == "processed":
+                if telegram_token.telegram_user_id == telegram_user_id:
+                    logger.info(f"Токен уже обработан для этого пользователя: {token}")
+                    return True
+                else:
+                    logger.warning(f"Токен обработан для другого пользователя: {token}")
+                    return False
+            
             if telegram_token.status != "pending":
                 logger.warning(f"Токен имеет неверный статус: {token}, статус: {telegram_token.status}")
                 print(f"Сработало условие 3: Токен {token} имеет статус {telegram_token.status}, ожидается 'pending'")

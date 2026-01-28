@@ -91,6 +91,9 @@ class SQLiteToPostgresMigrator:
             not_null = col[3] == 1
             default = col[4]
             
+            # Экранируем имя колонки (на случай зарезервированных слов как desc, user и т.д.)
+            escaped_col_name = f'"{col_name}"'
+            
             # Адаптируем типы для PostgreSQL
             if col_type == "INTEGER":
                 if is_pk:
@@ -113,7 +116,7 @@ class SQLiteToPostgresMigrator:
             else:
                 pg_type = "TEXT"  # По умолчанию
             
-            col_def = f"{col_name} {pg_type}"
+            col_def = f"{escaped_col_name} {pg_type}"
             if not_null and not is_pk:
                 col_def += " NOT NULL"
             if default and not is_pk:
@@ -164,7 +167,12 @@ class SQLiteToPostgresMigrator:
             columns_str = ", ".join(column_names)
             placeholders = ", ".join(["%s"] * len(column_names))
             
-            insert_sql = f"INSERT INTO {schema}.{table_name} ({columns_str}) VALUES ({placeholders})"
+            # Экранируем имена колонок (на случай зарезервированных слов)
+            escaped_columns = [f'"{col}"' for col in column_names]
+            columns_str = ", ".join(escaped_columns)
+            placeholders = ", ".join(["%s"] * len(column_names))
+            
+            insert_sql = f'INSERT INTO {schema}.{table_name} ({columns_str}) VALUES ({placeholders})'
             
             # Получаем информацию о типах колонок для правильной конвертации
             sqlite_conn2 = sqlite3.connect(sqlite_path)

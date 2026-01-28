@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="main-menu">
+    <div class="main-menu" style="text-align: center; max-width: 400px; margin: 0 auto;">
         <div class ="menu-header">
-            <span class="menu-title">Вход через Telegram</span>
-            <span class="menu-label" id="status">Ожидание подтверждения...</span>
+            <span class="menu-title" style="display: block; text-align: center;">Вход через Telegram</span>
+            <span class="menu-label" id="status" style="display: block; text-align: center;">Ожидание подтверждения...</span>
         </div>
         <div class="menu-row single">
             <a href="{{ telegram_link }}" id="telegram-login-btn" class="menu-btn full" style="text-decoration:none;">
