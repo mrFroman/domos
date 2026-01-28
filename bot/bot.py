@@ -15,10 +15,28 @@ from config import BASE_DIR
 
 WEB_DIR = os.path.join(BASE_DIR, "web")
 
-if WEB_DIR not in sys.path:
-    sys.path.append(WEB_DIR)
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.web.settings")
+# Убеждаемся что BASE_DIR в начале sys.path (для Docker)
+base_dir_str = str(BASE_DIR)
+if base_dir_str not in sys.path:
+    sys.path.insert(0, base_dir_str)
+
+# Пробуем определить правильный settings модуль
+# Сначала пробуем web.main_interface (для Docker, когда /app в PYTHONPATH)
+# Импортируем main_interface ПЕРЕД settings, чтобы проверить что /app в sys.path
+try:
+    import web.main_interface  # Проверяем что main_interface доступен (значит /app в sys.path)
+    import web.web.settings
+    # Если импорт успешен, используем web.web.settings
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.web.settings")
+except ImportError:
+    # Если не получилось, добавляем WEB_DIR и используем web.settings
+    if WEB_DIR not in sys.path:
+        sys.path.insert(0, WEB_DIR)
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
+
 django.setup()
+
+    
 
 from bot.tgbot.filters.admin import AdminFilter
 # from bot.tgbot.handlers.admin import register_admin

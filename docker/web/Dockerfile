@@ -16,6 +16,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код приложения
 COPY . .
 
+# Устанавливаем PYTHONPATH для доступа к модулям
+ENV PYTHONPATH=/app:$PYTHONPATH
+
 # Создаем директории для статики и медиа
 RUN mkdir -p /app/static /app/media /app/logs
 
@@ -23,4 +26,4 @@ RUN mkdir -p /app/static /app/media /app/logs
 EXPOSE 8002
 
 # Команда запуска (переопределяется в docker-compose.yml)
-CMD ["python", "web/manage.py", "runserver", "0.0.0.0:8002"]
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8002"]

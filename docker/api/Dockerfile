@@ -15,6 +15,9 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 # Копируем код приложения
 COPY . .
 
+# Устанавливаем PYTHONPATH для доступа к модулям (bot, config)
+ENV PYTHONPATH=/app:$PYTHONPATH
+
 # Создаем директории для логов и данных
 RUN mkdir -p /app/logs /app/data
 
@@ -22,4 +25,4 @@ RUN mkdir -p /app/logs /app/data
 EXPOSE 8001
 
 # Команда запуска (переопределяется в docker-compose.yml)
-CMD ["python", "api/main.py"]
+CMD ["python", "-m", "api.main"]

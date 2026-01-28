@@ -6,7 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from bot.tgbot.models.chat_message_models import Base, ChatMessage
-from config import USEFULL_MESSAGES_DB_PATH, logger_bot
+from config import USEFULL_MESSAGES_DB_PATH, logger_bot, DB_TYPE
 
 from dotenv import load_dotenv, find_dotenv
 
@@ -21,8 +21,20 @@ else:
 
 
 # Настройка БД
-engine = create_engine(f"sqlite:///{USEFULL_MESSAGES_DB_PATH}", echo=False)
-Base.metadata.create_all(engine)
+# Используем правильный формат URL в зависимости от типа БД
+if DB_TYPE == "postgres":
+    # PostgreSQL использует полный URL
+    engine = create_engine(USEFULL_MESSAGES_DB_PATH, echo=False)
+else:
+    # SQLite использует путь к файлу
+    engine = create_engine(f"sqlite:///{USEFULL_MESSAGES_DB_PATH}", echo=False)
+
+# Создаем таблицы (оборачиваем в try-except для безопасности)
+try:
+    Base.metadata.create_all(engine)
+except Exception as e:
+    logger_bot.warning(f"Не удалось создать таблицы (возможно они уже существуют): {e}")
+
 SessionLocal = sessionmaker(bind=engine)
 
 

@@ -17,6 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код приложения
 COPY . .
 
+# Устанавливаем PYTHONPATH для доступа к модулям (web, bot, config)
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+# Удаляем конфликтующий пакет config из PyPI, если он установлен
+RUN pip uninstall -y config 2>/dev/null || true
+
 # Создаем директории для данных бота
 RUN mkdir -p /app/bot/tgbot/databases \
     /app/bot/tgbot/vector_index \
@@ -27,4 +33,4 @@ RUN mkdir -p /app/bot/tgbot/databases \
 EXPOSE 8080
 
 # Команда запуска (переопределяется в docker-compose.yml)
-CMD ["python", "bot/bot.py"]
+CMD ["python", "-m", "bot.bot"]

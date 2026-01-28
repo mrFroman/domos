@@ -16,6 +16,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код приложения
 COPY . .
 
+# Устанавливаем PYTHONPATH для доступа к модулям (web, bot, config)
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+# Удаляем конфликтующий пакет config из PyPI, если он установлен
+RUN pip uninstall -y config 2>/dev/null || true
+
 # Создаем директории для логов
 RUN mkdir -p /app/logs
 
@@ -23,4 +29,4 @@ RUN mkdir -p /app/logs
 EXPOSE 6000
 
 # Команда запуска (переопределяется в docker-compose.yml)
-CMD ["python", "bot/main.py"]
+CMD ["python", "-m", "bot.main"]

@@ -16,7 +16,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-domos} -d ${POSTGRES_DB:-domos}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-domos} -d ${POSTGRES_DB:-domos}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -82,7 +82,7 @@ services:
       - ./api:/app/api
       - ./bot:/app/bot
       - ./config.py:/app/config.py:ro
-    command: python api/main.py
+    command: python -m api.main
     restart: unless-stopped
     networks:
       - domos_network
@@ -108,7 +108,7 @@ services:
     volumes:
       - ./web:/app/web
       - ./static:/app/static
-    command: python web/manage.py runserver 0.0.0.0:8002
+    command: python manage.py runserver 0.0.0.0:8002
     restart: unless-stopped
     networks:
       - domos_network
@@ -126,11 +126,13 @@ services:
       - MAIN_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
       - DB_TYPE=${DB_TYPE:-postgres}
       - BOT_TOKEN=${BOT_TOKEN}
+      - PYTHONPATH=/app
     volumes:
       - ./bot:/app/bot
+      - ./web:/app/web
       - ./config.py:/app/config.py:ro
       - ./images:/app/images
-    command: python bot/bot.py
+    command: python -m bot.bot
     restart: unless-stopped
     networks:
       - domos_network
@@ -150,7 +152,7 @@ services:
       - "${BOT_API_PORT:-6000}:6000"
     volumes:
       - ./bot:/app/bot
-    command: python bot/main.py
+    command: python -m bot.main
     restart: unless-stopped
     networks:
       - domos_network

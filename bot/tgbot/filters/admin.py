@@ -2,7 +2,8 @@ import typing
 
 from aiogram.dispatcher.filters import BoundFilter
 
-from config import Config
+from config import load_config
+Config = load_config()
 
 
 class AdminFilter(BoundFilter):

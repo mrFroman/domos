@@ -25,12 +25,14 @@ if DB_TYPE == "postgres":
     ADVERT_TOKENS_DB_PATH = DATABASE_URL
     CONTRACT_TOKENS_DB_PATH = DATABASE_URL
     AUDIO_DB_PATH = DATABASE_URL  # Для совместимости
+    USEFULL_MESSAGES_DB_PATH = DATABASE_URL  # Для сообщений
 else:
     # SQLite - используем файлы
     MAIN_DB_PATH = str(BASE_DIR / "bot" / "tgbot" / "databases" / "data.db")
     ADVERT_TOKENS_DB_PATH = str(BASE_DIR / "api" / "advert_tokens.db")
     CONTRACT_TOKENS_DB_PATH = str(BASE_DIR / "api" / "contract_tokens.db")
     AUDIO_DB_PATH = str(BASE_DIR / "bot" / "tgbot" / "databases" / "downloaded_audio.db")
+    USEFULL_MESSAGES_DB_PATH = str(BASE_DIR / "bot" / "tgbot" / "databases" / "usefull_messages.db")
 
 # Файл с позициями рекламы
 ADVERT_POSITIONS_FILE = str(BASE_DIR / "api" / "advert_positions.json")

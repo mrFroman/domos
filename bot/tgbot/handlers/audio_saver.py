@@ -5,7 +5,7 @@ from aiogram.types import ContentType
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from config import AUDIO_DB_PATH, BASE_DIR, logger_bot
+from config import AUDIO_DB_PATH, BASE_DIR, logger_bot, DB_TYPE
 from bot.tgbot.models.audio_saver_models import Base, AudioFile
 from bot.tgbot.services.speech_faster_whisper import process_voice_with_faster_whisper
 
@@ -21,8 +21,20 @@ else:
 
 
 # Настройка БД
-engine = create_engine(f"sqlite:///{AUDIO_DB_PATH}", echo=False)
-Base.metadata.create_all(engine)
+# Используем правильный формат URL в зависимости от типа БД
+if DB_TYPE == "postgres":
+    # PostgreSQL использует полный URL
+    engine = create_engine(AUDIO_DB_PATH, echo=False)
+else:
+    # SQLite использует путь к файлу
+    engine = create_engine(f"sqlite:///{AUDIO_DB_PATH}", echo=False)
+
+# Создаем таблицы (оборачиваем в try-except для безопасности)
+try:
+    Base.metadata.create_all(engine)
+except Exception as e:
+    logger_bot.warning(f"Не удалось создать таблицы (возможно они уже существуют): {e}")
+
 SessionLocal = sessionmaker(bind=engine)
 
 SAVE_DIR = os.path.join(BASE_DIR, "bot", "downloaded_audio")
