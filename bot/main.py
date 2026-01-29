@@ -2,7 +2,11 @@ from flask import Flask, request, jsonify
 from yookassa import Payment
 from yookassa import Configuration
 
-from bot.tgbot.databases.pay_db import *
+# Используем относительный импорт для Docker
+try:
+    from bot.tgbot.databases.pay_db import *
+except ImportError:
+    from tgbot.databases.pay_db import *
 
 app = Flask(__name__)
 

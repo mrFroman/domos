@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="main-menu">
+        <div class="menu-header">
+            <span class="menu-title">Подтверждение кода</span>
+            <span class="menu-label">
+                Код подтверждения отправлен на номер<br>
+                <strong>{{ phone }}</strong>
+            </span>
+        </div>
+        
+        {% if error_message %}
+            <div class="error-message" style="background: #ff4444; color: white; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+                {{ error_message }}
+            </div>
+        {% endif %}
+        
+        {% if attempts_left is not None %}
+            <div style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px; text-align: center;">
+                Осталось попыток: <strong>{{ attempts_left }}</strong>
+            </div>
+        {% endif %}
+        
+        <form method="post" action="{% url 'phone_verify_code' %}" id="code-form">
+            {% csrf_token %}
+            <div class="menu-row single">
+                <input 
+                    type="text" 
+                    name="code" 
+                    placeholder="000000" 
+                    class="menu-input code-input"
+                    required
+                    autofocus
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    style="width: 100%; padding: 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); font-size: 24px; text-align: center; letter-spacing: 8px; margin-bottom: 16px; font-weight: bold;"
+                />
+            </div>
+            <div class="menu-row single">
+                <button type="submit" class="menu-btn full">
+                    Подтвердить
+                </button>
+            </div>
+        </form>
+        
+        <div class="menu-row single" style="margin-top: 16px;">
+            <button type="button" class="menu-btn" id="resend-btn" style="background: transparent; border: 1px solid var(--border-color);">
+                Отправить код повторно
+            </button>
+        </div>
+        
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+            <p style="color: var(--text-secondary); font-size: 14px; text-align: center;">
+                Не получили код? Проверьте Telegram бот или запросите новый код
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Автоматический переход между полями кода (если будет несколько полей)
+        const codeInput = document.querySelector('.code-input');
+        
+        codeInput.addEventListener('input', function(e) {
+            // Оставляем только цифры
+            e.target.value = e.target.value.replace(/\D/g, '');
+            
+            // Если введено 6 цифр, автоматически отправляем форму
+            if (e.target.value.length === 6) {
+                setTimeout(() => {
+                    document.getElementById('code-form').submit();
+                }, 300);
+            }
+        });
+        
+        // Кнопка повторной отправки
+        document.getElementById('resend-btn').addEventListener('click', async function() {
+            const btn = this;
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Отправка...';
+            
+            try {
+                const response = await fetch('{% url "resend_code" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    btn.textContent = 'Код отправлен!';
+                    btn.style.background = '#4CAF50';
+                    btn.style.color = 'white';
+                    
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = 'transparent';
+                        btn.style.color = '';
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    alert(data.message || 'Ошибка при отправке кода');
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                alert('Ошибка при отправке запроса');
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,9 +1,5 @@
-"""
-Конфигурационный файл для проекта Domos
-Поддерживает как SQLite, так и PostgreSQL через переменную окружения DB_TYPE
-"""
-
 import os
+import pytz
 import logging
 from pathlib import Path
 from dotenv import load_dotenv, find_dotenv
@@ -12,13 +8,17 @@ from typing import List, Optional
 import pytz
 
 
-# Загружаем переменные окружения
-load_dotenv(find_dotenv())
 
-# Базовый директорий проекта
-BASE_DIR = Path(__file__).parent.absolute()
+# Максимальная длина сообщения бота
+MAX_BOT_MSG_LENGTH = 4000
 
-# Тип базы данных: sqlite или postgres
+# Локальное время
+YEKATERINBURG_TZ = pytz.timezone("Asia/Yekaterinburg")
+
+# Базовый путь к проекту
+BASE_DIR = Path(__file__).resolve().parents[0]
+
+# Тип базы данных (sqlite или postgres)
 DB_TYPE = os.getenv("DB_TYPE", "sqlite")
 
 # Настройка путей к базам данных
@@ -94,10 +94,13 @@ logging.basicConfig(
     ]
 )
 
-# Логгеры для разных модулей
-logger_api = logging.getLogger("api")
-logger_bot = logging.getLogger("bot")
-logger_web = logging.getLogger("web")
+# Пути к базам данных (читаем из env для Docker, иначе локальные SQLite)
+MAIN_DB_PATH = os.getenv("MAIN_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "data.db"))
+AUDIO_DB_PATH = os.getenv("AUDIO_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "downloaded_audio.db"))
+USEFULL_MESSAGES_DB_PATH = os.getenv("USEFULL_MESSAGES_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "useful_messages.db"))
+VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "vector_index"))
+ADVERT_TOKENS_DB_PATH = os.getenv("ADVERT_TOKENS_DB_PATH", os.path.join(BASE_DIR, "api", "advert_tokens.db"))
+CONTRACT_TOKENS_DB_PATH = os.getenv("CONTRACT_TOKENS_DB_PATH", os.path.join(BASE_DIR, "api", "contract_tokens.db"))
 
 # Функция для загрузки конфигурации (для совместимости со старым кодом)
 def env_bool(name: str, default: bool = False) -> bool:
