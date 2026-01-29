@@ -94,6 +94,39 @@ logging.basicConfig(
     ]
 )
 
+formatter_bot = logging.Formatter("%(levelname)s: %(asctime)s - Bot: - %(message)s")
+formatter_api = logging.Formatter("%(levelname)s: %(asctime)s - FastAPI: - %(message)s")
+
+
+# Логгер для бота
+logger_bot = logging.getLogger("bot")
+logger_bot.setLevel(logging.INFO)
+
+bot_file_handler = logging.FileHandler(logs_dir / "bot.log", encoding="utf-8")
+bot_file_handler.setFormatter(formatter_bot)
+bot_stream_handler = logging.StreamHandler()
+bot_stream_handler.setFormatter(formatter_bot)
+
+logger_bot.addHandler(bot_file_handler)
+logger_bot.addHandler(bot_stream_handler)
+logger_bot.propagate = False
+
+
+
+# Логгер для FastAPI
+logger_api = logging.getLogger("api")
+logger_api.setLevel(logging.INFO)
+
+api_file_handler = logging.FileHandler(logs_dir / "api.log", encoding="utf-8")
+api_file_handler.setFormatter(formatter_api)
+api_stream_handler = logging.StreamHandler()
+api_stream_handler.setFormatter(formatter_api)
+
+logger_api.addHandler(api_file_handler)
+logger_api.addHandler(api_stream_handler)
+logger_api.propagate = False
+
+
 # Пути к базам данных (читаем из env для Docker, иначе локальные SQLite)
 MAIN_DB_PATH = os.getenv("MAIN_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "data.db"))
 AUDIO_DB_PATH = os.getenv("AUDIO_DB_PATH", os.path.join(BASE_DIR, "bot", "tgbot", "databases", "downloaded_audio.db"))
