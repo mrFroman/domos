@@ -134,13 +134,13 @@ def get_user_info(user_id: int) -> dict:
         if user_data:
             if isinstance(user_data, dict):
                 return {
-                    'full_name': user_data.get('full_name', ''),
-                    'fullName': user_data.get('fullName', '')
+                    'full_name_payments': user_data.get('full_name_payments', ''),
+                    'full_name': user_data.get('full_name', '')
                 }
             else:
                 return {
-                    'full_name': user_data[0] if len(user_data) > 0 else '',
-                    'fullName': user_data[1] if len(user_data) > 1 else ''
+                    'full_name_payments': user_data[0] if len(user_data) > 0 else '',
+                    'full_name': user_data[1] if len(user_data) > 1 else ''
                 }
         return {}
 
@@ -515,7 +515,7 @@ def getUnpaids():
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall('SELECT fullName FROM users WHERE pay_status = 0')
+    info = db.fetchall('SELECT full_name FROM users WHERE pay_status = 0')
     return info
 
 
@@ -711,7 +711,7 @@ def changeUsername(user_id, username):
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET fullName = %s WHERE user_id = %s', (username, user_id,))
+    db.execute('UPDATE users SET full_name_payments = %s WHERE user_id = %s', (username, user_id,))
 
 
 def banUser(user_id):
@@ -1001,10 +1001,10 @@ def checkTimeExists1(day, roomnum):
             continue
 
         # Получаем имя пользователя
-        user_result = db.fetchone("SELECT fullName FROM users WHERE user_id = %s", (user_id,))
+        user_result = db.fetchone("SELECT full_name FROM users WHERE user_id = %s", (user_id,))
         if user_result:
             if isinstance(user_result, dict):
-                user_name = user_result.get('fullName', 'Неизвестный пользователь')
+                user_name = user_result.get('full_name', 'Неизвестный пользователь')
             else:
                 user_name = user_result[0] if user_result[0] else "Неизвестный пользователь"
         else:
@@ -1048,7 +1048,7 @@ def getRieltors():
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall("SELECT * FROM rieltors ORDER BY fullName")
+    info = db.fetchall("SELECT * FROM rieltors ORDER BY full_name")
     return info
 
 
@@ -1124,7 +1124,7 @@ def getPaidUsers():
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall("SELECT fullName FROM users WHERE pay_status = 1")
+    info = db.fetchall("SELECT full_name FROM users WHERE pay_status = 1")
     return info
 
 

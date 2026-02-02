@@ -81,6 +81,7 @@ services:
       - ./api:/app/api
       - ./bot:/app/bot
       - ./config.py:/app/config.py:ro
+      - ./vector_index:/app/bot/tgbot/vector_index
     command: python -m api.main
     restart: unless-stopped
     networks:
@@ -110,6 +111,7 @@ services:
     volumes:
       - ./web:/app/web
       - ./static:/app/static
+      - ./vector_index:/app/bot/tgbot/vector_index
     command: python manage.py runserver 0.0.0.0:8002
     restart: unless-stopped
     networks:
@@ -129,12 +131,12 @@ services:
       - MAIN_DB_PATH=postgresql://${POSTGRES_USER:-domos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-domos}
       - DB_TYPE=${DB_TYPE:-postgres}
       - BOT_TOKEN=${BOT_TOKEN}
-      - PYTHONPATH=/app
     volumes:
       - ./bot:/app/bot
       - ./web:/app/web
       - ./config.py:/app/config.py:ro
       - ./images:/app/images
+      - ./vector_index:/app/bot/tgbot/vector_index
     command: python -m bot.bot
     restart: unless-stopped
     networks:

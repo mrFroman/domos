@@ -329,6 +329,9 @@ month_access = InlineKeyboardButton("1 месяц", callback_data="buysub_month"
 three_access = InlineKeyboardButton("3 месяца", callback_data="buysub_three")
 halfyear_access = InlineKeyboardButton("6 месяцев", callback_data="buysub_halfyear")
 year = InlineKeyboardButton("1 год", callback_data="buysub_year")
+cancel_sub_btn = InlineKeyboardButton(
+    "❌ Отключить подписку", callback_data="sub_pay_cancel"
+)
 payment_mk.add(
     # test_access,
     open_access,
@@ -338,6 +341,7 @@ payment_mk.add(
     # three_access,
 )
 # payment_mk.row(year)
+payment_mk.row(cancel_sub_btn)
 payment_mk.row(mainmenubackbtn)
 
 
