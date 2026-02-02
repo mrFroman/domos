@@ -30,6 +30,7 @@ from bot.tgbot.keyboards.inline import (
 from bot.tgbot.misc.states import createDepositState
 from bot.tgbot.databases.database import AsyncDatabaseConnection, DB_TYPE
 from config import BASE_DIR, MAIN_DB_PATH, logger_bot
+from bot.tgbot.databases.database import DatabaseConnection
 from dotenv import load_dotenv, find_dotenv
 from datetime import datetime, timedelta, timezone
 
@@ -427,41 +428,72 @@ async def sub_pay_active(update: Union[Message, CallbackQuery], state: FSMContex
 #     )
 
 async def sub_pay_cancel(update: Union[Message, CallbackQuery]):
-    if isinstance(update, Message):
-        username = update.from_user.username
-        user_id = update.from_user.id
-        rec_payment = get_rec_payment(user_id)
-
-        end_date_raw = rec_payment[0][9]
-        end_date_dt = datetime.fromisoformat(end_date_raw)
-        end_date = end_date_dt.strftime("%d/%m/%Y %H:%M")
-
-        if username is None:
-            await update.edit_text(
-                """
-    Для корректной работы необходимо в настройках изменить имя пользователя!
-    Как это сделать:
-    Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
-    После изменения @username войдите в бот по ссылке еще раз и нажмите /start
     """
-            )
-            return
+    Показывает информацию о текущей подписке и кнопку «Отключить подписку».
+    Работает как по команде /sub_cancel, так и по нажатию инлайн-кнопки.
+    """
+    if isinstance(update, CallbackQuery):
+        await update.answer()
+        user = update.from_user
+        reply = update.message.edit_text
+    else:
+        user = update.from_user
+        reply = update.answer
+
+    username = user.username
+    user_id = user.id
+
+    if username is None:
+        await reply(
+            """
+Для корректной работы необходимо в настройках изменить имя пользователя!
+Как это сделать:
+Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
+После изменения @username войдите в бот по ссылке еще раз и нажмите /start
+"""
+        )
+        return
+
+    rec_payment = get_rec_payment(user_id)
+    end_date = None
+
+    if rec_payment:
+        row = rec_payment[0]
+        if isinstance(row, dict):
+            end_date_raw = row.get("end_pay_date") or row.get("END_PAY_DATE")
         else:
-            # rec_payment_cancel_keyboard
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            "Отключить подписку",
-                            callback_data="sub_pay_cancel_confirm",
-                        )
-                    ]
-                ]
-            )
-            await update.answer(
-                f"Ваша подписка активна.\n" f"Действует до: {end_date}.\n\n",
-                reply_markup=keyboard,
-            )
+            end_date_raw = row[9] if len(row) > 9 else None
+        if end_date_raw:
+            end_date_dt = datetime.fromisoformat(str(end_date_raw))
+            end_date = end_date_dt.strftime("%d/%m/%Y %H:%M")
+
+    if not end_date and getUserPay(user_id) == 1:
+        # Подписка активна по users (разовый платёж или старая запись), дата из users.end_pay
+        end_ts = getUserEndPay(user_id)
+        if end_ts:
+            end_date_dt = datetime.fromtimestamp(end_ts)
+            end_date = end_date_dt.strftime("%d/%m/%Y %H:%M")
+
+    if not end_date:
+        await reply("У вас нет активной подписки.")
+        return
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    "❌ Отключить подписку",
+                    callback_data="sub_pay_cancel_confirm",
+                )
+            ]
+        ]
+    )
+
+    await reply(
+        f"Ваша подписка активна.\n"
+        f"Действует до: {end_date}.\n\n",
+        reply_markup=keyboard,
+    )
 
 
 async def payment_inline(cb: CallbackQuery):
@@ -490,6 +522,49 @@ async def payment_inline(cb: CallbackQuery):
                 reply_markup=payment_mk,
                 disable_web_page_preview=True,
             )
+
+
+async def sub_pay_cancel_confirm_handler(cb: CallbackQuery):
+    """
+    Обработчик нажатия на кнопку «❌ Отключить подписку».
+    Отключает подписку пользователя и помечает рекуррентные платежи как отменённые.
+    """
+    await cb.answer()
+    username = cb.from_user.username
+    user_id = cb.from_user.id
+
+    if username is None:
+        await cb.message.edit_text(
+            """
+Для корректной работы необходимо в настройках изменить имя пользователя!
+Как это сделать:
+Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
+После изменения @username войдите в бот по ссылке еще раз и нажмите /start
+"""
+        )
+        return
+
+    try:
+        # Не трогаем users — доступ остаётся до конца оплаченного периода.
+        # Только отключаем рекуррентные списания (автопродление).
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db.execute(
+            """
+            UPDATE rec_payments
+            SET status = %s
+            WHERE user_id = %s AND status = %s
+            """,
+            ("cancelled", user_id, "active"),
+        )
+
+        await cb.message.edit_text(
+            "Автоматические списания отключены. Доступ по подписке сохранится до конца оплаченного периода."
+        )
+    except Exception as e:
+        logger_bot.exception("Ошибка при отключении подписки: %s", e)
+        await cb.message.edit_text(
+            "Не удалось отключить подписку. Попробуйте позже или напишите в поддержку: lebedev@domos.club"
+        )
 
 
 
@@ -695,9 +770,9 @@ def register_payment(dp: Dispatcher):
     # dp.register_callback_query_handler(
     #     sub_pay_active, lambda c: c.data == "sub_pay_active", state="*"
     # )
-    # dp.register_callback_query_handler(
-    #     sub_pay_cancel, lambda c: c.data == "sub_pay_cancel", state="*"
-    # )
+    dp.register_callback_query_handler(
+        sub_pay_cancel, lambda c: c.data == "sub_pay_cancel", state="*"
+    )
 
     dp.register_callback_query_handler(
         month_recurrent, lambda c: c.data == "sub_advantages", state="*"
@@ -722,5 +797,10 @@ def register_payment(dp: Dispatcher):
 
     dp.register_callback_query_handler(
         choseddep_inline, lambda c: "buysub_" in c.data, state="*"
+    )
+    dp.register_callback_query_handler(
+        sub_pay_cancel_confirm_handler,
+        lambda c: c.data == "sub_pay_cancel_confirm",
+        state="*",
     )
     dp.register_message_handler(fullnameChoicedDep, state=createDepositState.fullname)

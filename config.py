@@ -30,6 +30,7 @@ if DB_TYPE == "postgres":
     CONTRACT_TOKENS_DB_PATH = DATABASE_URL
     AUDIO_DB_PATH = DATABASE_URL  # Для совместимости
     USEFULL_MESSAGES_DB_PATH = DATABASE_URL  # Для сообщений
+    VECTOR_DB_PATH = str(BASE_DIR / "bot"/ "tgbot"/ "vector_index")
 else:
     # SQLite - используем файлы
     MAIN_DB_PATH = str(BASE_DIR / "bot" / "tgbot" / "databases" / "data.db")

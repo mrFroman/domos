@@ -7,6 +7,7 @@
 - Валидирует целостность
 """
 
+from datetime import datetime
 import os
 import sys
 import sqlite3
@@ -70,6 +71,15 @@ class SQLiteToPostgresMigrator:
         tables = [row[0] for row in cursor.fetchall()]
         conn.close()
         return tables
+
+    def to_snake_case(self, name: str) -> str:
+        # Преобразует camelCase/TitleCase в snake_case
+        import re
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+        s2 = re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1)
+        return s2.lower()
+
+
     
     def get_table_schema(self, sqlite_path: str, table_name: str) -> str:
         """Получает схему таблицы из SQLite"""
@@ -78,33 +88,129 @@ class SQLiteToPostgresMigrator:
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = cursor.fetchall()
         conn.close()
+
+
+
+        def normalize_default(default, pg_type):
+            if default is None:
+                return None
+
+            # убираем внешние кавычки из SQLite
+            if isinstance(default, str):
+                default_clean = default.strip("'\"")
+            else:
+                default_clean = default
+
+            # числовые типы
+            if pg_type in ("BIGINT", "INTEGER", "SERIAL"):
+                if str(default_clean).isdigit():
+                    return default_clean
+                return None
+
+            # BOOLEAN
+            if pg_type == "BOOLEAN":
+                return "true" if default_clean in ("1", 1, True) else "false"
+
+            # DATE / TIMESTAMP
+            if pg_type in ("DATE", "TIMESTAMP"):
+                return None  # даты лучше не дефолтить из SQLite
+
+            # TEXT
+            escaped = default_clean.replace("'", "''")
+            return f"'{escaped}'"
         
-            # Формируем CREATE TABLE запрос для PostgreSQL
+        
+        # Формируем CREATE TABLE запрос для PostgreSQL
         column_defs = []
         for col in columns:
-            col_name = col[1]
+            original_name = col[1]
+
+            # Сначала переименовываем "full_name" в "full_name_payments"
+            if table_name.lower() == "users" and original_name.lower() == "full_name":
+                col_name = "full_name_payments"
+            else:
+                # CamelCase → snake_case
+                col_name = self.to_snake_case(original_name)
+
+            # Проверка на дубликаты
+            suffix = 2
+            base_col_name = col_name
+            while col_name in [c.split()[0] for c in column_defs]:  # проверяем уже добавленные имена
+                col_name = f"{base_col_name}_{suffix}"
+                suffix += 1
+
+
+            if table_name.lower() == "events" and col_name == "desc":
+                col_name = "description"
+        
+
             # Экранируем зарезервированные слова PostgreSQL
             if col_name.upper() in ['DESC', 'ORDER', 'USER', 'GROUP', 'TABLE', 'INDEX']:
                 col_name = f'"{col_name}"'
+
             col_type = col[2].upper()
             is_pk = col[5] == 1
             not_null = col[3] == 1
             default = col[4]
             
+
+
             # Экранируем имя колонки (на случай зарезервированных слов как desc, user и т.д.)
-            escaped_col_name = f'"{col_name}"'
-            
+            if col_name.startswith('"') and col_name.endswith('"'):
+                escaped_col_name = col_name  # уже экранировано
+            else:
+                escaped_col_name = col_name
+
+        
             # Адаптируем типы для PostgreSQL
-            if col_type == "INTEGER":
-                if is_pk:
-                    pg_type = "SERIAL PRIMARY KEY"
+            # passport_data: user_id и client_id → TEXT
+            if table_name.lower() == "passport_data" and col_name.lower() in ["user_id", "client_id"]:
+                pg_type = "TEXT"
+            
+            elif table_name.lower() == "passport_data" and col_name.lower() in ["birth_date", "issue_date"]:
+                pg_type = "TIMESTAMP"
+
+            # users: user_id и end_pay → TEXT, остальное как числа/датa
+            elif table_name.lower() == "users" and col_name.lower() in ["user_id", "end_pay", 'last_pay']:
+                pg_type = "BIGINT"
+
+            # meetings: user_id → BIGINT, roomnum → BIGINT
+            elif table_name.lower() == "meetings" and col_name.lower() in ["user_id", "roomnum"]:
+                pg_type = "BIGINT"
+
+            # payments: user_id, amount, status → BIGINT
+            elif table_name.lower() == "payments" and col_name.lower() in ["user_id", "amount", "status"]:
+                pg_type = "BIGINT"
+
+            # rec_payments: user_id, amount, is_recurrent, retry_count → BIGINT
+            elif table_name.lower() == "rec_payments" and col_name.lower() in ["user_id", "amount", "is_recurrent", "retry_count", 'rebill_id', 'payment_id_last']:
+                pg_type = "BIGINT"
+            elif table_name.lower() == "rec_payments" and col_name.lower() in ["start_pay_date", "end_pay_date", "created_at", "updated_at"]:
+                pg_type = "TIMESTAMP"
+
+
+            # refferal: reffer_id, user_id → BIGINT
+            elif table_name.lower() == "refferal" and col_name.lower() in ["reffer_id", "user_id"]:
+                pg_type = "BIGINT"
+
+            elif table_name.lower() == "events" and col_name.lower() in ["date"]:
+                pg_type = "BIGINT"
+                
+            # Для PK INTEGER делаем SERIAL
+            elif col_type == "INTEGER" and is_pk:
+                pg_type = "SERIAL PRIMARY KEY"
+
+            # Boolean поля (если есть в tokens)
+            elif col_type == "INTEGER":
+                col_lower = col_name.lower()
+                if col_lower in ['payment_status', 'signal'] and table_name.lower() == 'tokens':
+                    pg_type = "BOOLEAN"
                 else:
-                    # Проверяем имя колонки для boolean полей (только для определенных таблиц)
-                    col_lower = col_name.lower()
-                    if col_lower in ['payment_status', 'signal'] and table_name.lower() in ['tokens']:
-                        pg_type = "BOOLEAN"
-                    else:
-                        pg_type = "BIGINT"  # Используем BIGINT вместо INTEGER для больших чисел
+                    pg_type = "BIGINT"
+
+            # Остальные типы
+            elif col_type == "TIMESTAMP":
+                pg_type = "TIMESTAMP"
             elif col_type == "TEXT":
                 pg_type = "TEXT"
             elif col_type == "REAL":
@@ -114,18 +220,22 @@ class SQLiteToPostgresMigrator:
             elif col_type == "BOOLEAN":
                 pg_type = "BOOLEAN"
             else:
-                pg_type = "TEXT"  # По умолчанию
+                pg_type = "TEXT"
             
             col_def = f"{escaped_col_name} {pg_type}"
             if not_null and not is_pk:
                 col_def += " NOT NULL"
-            if default and not is_pk:
-                if isinstance(default, str):
-                    # Экранируем одинарные кавычки для PostgreSQL
-                    escaped_default = default.replace("'", "''")
-                    col_def += f" DEFAULT '{escaped_default}'"
-                else:
-                    col_def += f" DEFAULT {default}"
+            
+            normalized_default = normalize_default(default, pg_type)
+            if normalized_default is not None and not is_pk:
+                col_def += f" DEFAULT {normalized_default}"
+            # if default and not is_pk:
+            #     if isinstance(default, str):
+            #         # Экранируем одинарные кавычки для PostgreSQL
+            #         escaped_default = default.replace("'", "''")
+            #         col_def += f" DEFAULT '{escaped_default}'"
+            #     else:
+            #         col_def += f" DEFAULT {default}"
             
             column_defs.append(col_def)
         
@@ -164,11 +274,31 @@ class SQLiteToPostgresMigrator:
         if rows:
             # Получаем имена колонок
             column_names = [description[0] for description in sqlite_cursor.description]
-            columns_str = ", ".join(column_names)
-            placeholders = ", ".join(["%s"] * len(column_names))
-            
-            # Экранируем имена колонок (на случай зарезервированных слов)
-            escaped_columns = [f'"{col}"' for col in column_names]
+
+            # --- users: делаем специальный маппинг колонок ---
+            if table_name.lower() == "users":
+                column_mapping = {}
+                for col in column_names:
+                    col_lower = col.lower()
+                    if col_lower == "full_name":
+                        pg_name = "full_name_payments"
+                    elif col_lower == "fullname":
+                        pg_name = "full_name"
+                    else:
+                        pg_name = self.to_snake_case(col)
+                    column_mapping[col] = pg_name
+
+                escaped_columns = list(column_mapping.values())
+                data = [[row[sqlite_col] for sqlite_col in column_mapping.keys()] for row in rows]
+
+            else:
+                # Универсальная обработка остальных таблиц
+                escaped_columns = [self.to_snake_case(col) for col in column_names]
+                if table_name.lower() == "events":
+                    escaped_columns = ["description" if col=="desc" else col for col in escaped_columns]
+
+            data = [[row[col] for col in column_names] for row in rows]
+
             columns_str = ", ".join(escaped_columns)
             placeholders = ", ".join(["%s"] * len(column_names))
             
@@ -187,6 +317,16 @@ class SQLiteToPostgresMigrator:
                 row_data = []
                 for col in column_names:
                     value = row[col]
+                    
+                    if table_name.lower() == "passport_data" and col.lower() in ["birth_date", "issue_date", "created_at"]:
+                        if value in (None, ""):
+                            value = None
+                        else:
+                            try:
+                                value = datetime.strptime(value, "%d.%m.%Y")
+                            except ValueError:
+                                value = None
+
                     # Конвертируем типы для PostgreSQL
                     if isinstance(value, bytes):
                         value = psycopg2.Binary(value)
