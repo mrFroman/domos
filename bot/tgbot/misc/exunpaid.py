@@ -39,7 +39,7 @@ scope = [
 def getUnpaids():
     """Получает список неоплативших пользователей"""
     db = get_db_connection(MAIN_DB_PATH, schema="main")
-    usernames = db.fetchall("SELECT fullName FROM users WHERE pay_status = 0")
+    usernames = db.fetchall("SELECT full_name FROM users WHERE pay_status = 0")
     return usernames
 
 

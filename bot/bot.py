@@ -66,6 +66,7 @@ from bot.tgbot.handlers.audio_saver import register_audio_saver_handlers
 from bot.tgbot.handlers.advert import register_advert_handlers
 from bot.tgbot.handlers.contacts import register_contacts
 from bot.tgbot.handlers.chat_join_request import register_chat_join_requests
+from bot.tgbot.handlers.support_chat import register_support_chat_handlers
 from bot.tgbot.handlers.dogovor import register_dogovor
 from bot.tgbot.handlers.eventsmenu import regevents
 from bot.tgbot.handlers.feedback import register_feedback
@@ -141,6 +142,7 @@ def register_all_handlers(dp):
     register_advert_admin_handlers(dp)
     register_usefull_messages_saver_handlers(dp)
     register_chat_join_requests(dp)
+    register_support_chat_handlers(dp)
 
 
 async def run_parse_nmarket():
