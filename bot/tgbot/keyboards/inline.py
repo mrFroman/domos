@@ -139,7 +139,7 @@ def mainmenumk(user_id):
         "⭐️ Что входит в подписку", callback_data="sub_advantages"
     )
 
-
+    support_chat = InlineKeyboardButton("💬 Техподдержка", callback_data="support_chat")
     # analysis = InlineKeyboardButton('⚖️ Аналитика', callback_data='analysis')
     settings = InlineKeyboardButton("⚙️ Настройки", callback_data="settings")
     contract = InlineKeyboardButton(
@@ -161,6 +161,7 @@ def mainmenumk(user_id):
     start_mk.row(subs_advantages)
     start_mk.row(eventsbtn)
     start_mk.row(inviteref)
+    start_mk.row(support_chat)
     adm = checkUserAdmin(user_id)
     if adm == "admin":
         start_mk.add(settings)

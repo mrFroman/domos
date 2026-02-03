@@ -88,8 +88,25 @@ CREATE TABLE IF NOT EXISTS main.feedback (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Таблица техподдержки
+CREATE TABLE IF NOT EXISTS bot.support_messages (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    username VARCHAR(255),
+    full_name VARCHAR(255),
+    message_text TEXT NOT NULL,
+    group_message_id INTEGER,
+    reply_to_message_id INTEGER,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Индексы
 CREATE INDEX IF NOT EXISTS idx_users_pay_status ON main.users(pay_status);
 CREATE INDEX IF NOT EXISTS idx_users_end_pay ON main.users(end_pay);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON main.payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_status ON main.payments(status);
+CREATE INDEX IF NOT EXISTS idx_support_user_id ON bot.support_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_group_message_id ON bot.support_messages(group_message_id);
+CREATE INDEX IF NOT EXISTS idx_support_status ON bot.support_messages(status);
