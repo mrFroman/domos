@@ -28,7 +28,7 @@ def get_users_by_status(pay_status):
     """Получаем user_id по статусу оплаты"""
     try:
         db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        rows = db.fetchall("SELECT user_id FROM users WHERE pay_status = %s", (pay_status,))
+        rows = db.fetchall("SELECT user_id FROM users WHERE pay_status::int = %s", (pay_status,))
         users = set()
         for row in rows:
             if isinstance(row, dict):

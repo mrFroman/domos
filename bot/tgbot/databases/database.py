@@ -278,6 +278,34 @@ class AsyncDatabaseConnection:
         elif not AIOSQLITE_AVAILABLE:
             raise RuntimeError("aiosqlite не установлен. Установите: pip install aiosqlite")
     
+    @staticmethod
+    def _adapt_sql_for_asyncpg(query: str) -> str:
+        """
+        Адаптирует SQL запросы для asyncpg (асинхронный PostgreSQL драйвер)
+        
+        - Заменяет ? или %s на $1, $2, $3 и т.д. (asyncpg использует нумерованные параметры)
+        - Адаптирует типы данных
+        - Исправляет синтаксические различия
+        """
+        import re
+        
+        # Сначала применяем базовые адаптации из синхронной версии
+        query = DatabaseConnection._adapt_sql_for_postgres(query)
+        
+        # Подсчитываем количество параметров (либо %s, либо уже есть $1, $2 и т.д.)
+        # Заменяем %s на $1, $2, $3 и т.д.
+        param_count = 0
+        
+        def replace_param(match):
+            nonlocal param_count
+            param_count += 1
+            return f"${param_count}"
+        
+        # Заменяем все %s на нумерованные параметры $1, $2, $3...
+        query = re.sub(r'%s', replace_param, query)
+        
+        return query
+    
     @asynccontextmanager
     async def get_connection(self):
         """Асинхронный контекстный менеджер для получения подключения"""
@@ -309,17 +337,37 @@ class AsyncDatabaseConnection:
         Returns:
             Результат выполнения запроса
         """
-        # Адаптируем SQL для PostgreSQL
-        if self.db_type == "postgres":
-            query = DatabaseConnection._adapt_sql_for_postgres(query)
+        # Адаптируем SQL для PostgreSQL async (asyncpg использует $1, $2 вместо %s)
+        if self.db_type == "postgres" and ASYNCPG_AVAILABLE:
+            query = self._adapt_sql_for_asyncpg(query)
+        
+        # Определяем, нужно ли возвращать результаты
+        query_upper = query.strip().upper()
+        is_select = query_upper.startswith("SELECT") or "RETURNING" in query_upper
         
         async with self.get_connection() as conn:
             if self.db_type == "postgres" and ASYNCPG_AVAILABLE:
-                if params:
-                    rows = await conn.fetch(query, *params if isinstance(params, (tuple, list)) else params)
+                if is_select:
+                    # Для SELECT запросов используем fetch
+                    if params:
+                        # asyncpg принимает параметры как позиционные аргументы
+                        if isinstance(params, (tuple, list)):
+                            rows = await conn.fetch(query, *params)
+                        else:
+                            rows = await conn.fetch(query, params)
+                    else:
+                        rows = await conn.fetch(query)
+                    return [dict(row) for row in rows]
                 else:
-                    rows = await conn.fetch(query)
-                return [dict(row) for row in rows]
+                    # Для DELETE, INSERT, UPDATE используем execute
+                    if params:
+                        if isinstance(params, (tuple, list)):
+                            await conn.execute(query, *params)
+                        else:
+                            await conn.execute(query, params)
+                    else:
+                        await conn.execute(query)
+                    return []
             else:
                 # SQLite async
                 if params:
@@ -327,15 +375,18 @@ class AsyncDatabaseConnection:
                 else:
                     cursor = await conn.execute(query)
                 await conn.commit()
-                rows = await cursor.fetchall()
-                # Преобразуем в список словарей
-                columns = [desc[0] for desc in cursor.description] if cursor.description else []
-                return [dict(zip(columns, row)) for row in rows]
+                if is_select:
+                    rows = await cursor.fetchall()
+                    # Преобразуем в список словарей
+                    columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                    return [dict(zip(columns, row)) for row in rows]
+                return []
     
     async def fetchone(self, query: str, params: Optional[Union[tuple, dict, List]] = None):
         """Выполняет запрос асинхронно и возвращает одну строку"""
-        if self.db_type == "postgres":
-            query = DatabaseConnection._adapt_sql_for_postgres(query)
+        # Адаптируем SQL для PostgreSQL async (asyncpg использует $1, $2 вместо %s)
+        if self.db_type == "postgres" and ASYNCPG_AVAILABLE:
+            query = self._adapt_sql_for_asyncpg(query)
         
         async with self.get_connection() as conn:
             if self.db_type == "postgres" and ASYNCPG_AVAILABLE:
