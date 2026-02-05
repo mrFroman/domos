@@ -16,7 +16,7 @@ def get_paying_users(db_path: str):
     """Получает список ID пользователей с активной подпиской"""
     try:
         db = DatabaseConnection(db_path, schema="main")
-        users = db.fetchall('SELECT user_id FROM users WHERE pay_status = 1')
+        users = db.fetchall('SELECT user_id FROM users WHERE pay_status::int = 1')
         result = []
         for user in users:
             if isinstance(user, dict):

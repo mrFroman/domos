@@ -163,25 +163,25 @@ async def start_monitors():
         Popen([sys.executable, "-m", "bot.tgbot.handlers.tsmonitor"])
         logger_bot.info("Мониторинг подписок активирован")
 
-        #Popen([sys.executable, "-m", "bot.tgbot.handlers.payment_monitor"])
-        #logger_bot.info("Мониторинг оплат активирован")
+        Popen([sys.executable, "-m", "bot.tgbot.handlers.payment_monitor"])
+        logger_bot.info("Мониторинг оплат активирован")
 
-        #Popen([sys.executable, "-m", "bot.tgbot.handlers.notifymonitor"])
-        #logger_bot.info("Мониторинг оплаты подписки активирован")
+        Popen([sys.executable, "-m", "bot.tgbot.handlers.notifymonitor"])
+        logger_bot.info("Мониторинг оплаты подписки активирован")
 
-        #Popen([sys.executable, "-m", "bot.tgbot.handlers.eventsmonitor"])
-        #logger_bot.info("Мониторинг событий активирован")
+        Popen([sys.executable, "-m", "bot.tgbot.handlers.eventsmonitor"])
+        logger_bot.info("Мониторинг событий активирован")
 
-        #Popen([sys.executable, "-m", "bot.tgbot.handlers.ban_monitor"])
-        #logger_bot.info("Мониторинг бана в канале активирован")
+        Popen([sys.executable, "-m", "bot.tgbot.handlers.ban_monitor"])
+        logger_bot.info("Мониторинг бана в канале активирован")
 
-       #Popen([sys.executable, "-m", "bot.tgbot.services.monthly_anket"])
-        #logger_bot.info("Мониторинг ежемесячного опроса активирован")
+        Popen([sys.executable, "-m", "bot.tgbot.services.monthly_anket"])
+        logger_bot.info("Мониторинг ежемесячного опроса активирован")
 
-        #Popen([sys.executable, "-m", "bot.tgbot.services.recurrent_payments"])
-        #logger_bot.info("Мониторинг рекуррентных платежей активирован")
+        Popen([sys.executable, "-m", "bot.tgbot.services.recurrent_payments"])
+        logger_bot.info("Мониторинг рекуррентных платежей активирован")
 
-        #Popen([sys.executable, "-m", "bot.tgbot.services.parse_messages"])
+        Popen([sys.executable, "-m", "bot.tgbot.services.parse_messages"])
         
         logger_bot.info("Парсер сообщений из каналов активирован")
     except Exception as e:

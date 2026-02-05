@@ -430,6 +430,8 @@ async def sub_pay_cancel(update: Union[Message, CallbackQuery]):
         return
 
     rec_payment = get_rec_payment(user_id)
+
+    logger_bot.info(f"rec_payment for user_id {user_id}: {rec_payment}")
     end_date = None
 
     if rec_payment:

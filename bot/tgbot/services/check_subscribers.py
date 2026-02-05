@@ -37,7 +37,7 @@ async def send_subscription_reminders():
         db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
 
         # Получаем пользователей с активной подпиской
-        users = await db.fetchall("SELECT user_id FROM users WHERE pay_status = 1")
+        users = await db.fetchall("SELECT user_id FROM users WHERE pay_status::int = 1")
         logging.info(f"Найдено активных пользователей: {len(users)}")
 
         for user_row in users:

@@ -419,11 +419,11 @@ async def get_users_all_paid_users(pay_status):
     """Получаем user_id по статусу оплаты"""
     try:
         db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        rows = db.fetchall("SELECT fullName FROM users WHERE pay_status = %s", (pay_status,))
+        rows = db.fetchall("SELECT full_name FROM users WHERE pay_status = %s", (pay_status,))
         users = set()
         for row in rows:
             if isinstance(row, dict):
-                fullname = row.get('fullName', '')
+                fullname = row.get('full_name', '')
             else:
                 fullname = row[0] if row else ''
             if fullname:

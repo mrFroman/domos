@@ -20,10 +20,15 @@ token = '5519929200:AAFxf2y-QW7i3aW4hixhffFg1X7vDRG0zOQ'
 # #monitorTime()
 
 def newMonitoring():
-    """Мониторинг уведомлений о подписке"""
+    """Мониторинг уведомлений о подписке. Напоминания только тем, у кого не включён автоплатёж."""
     while True:
         db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        data = db.fetchall('SELECT * FROM users WHERE end_pay != 0')
+        # Только пользователи с подпиской (end_pay != 0) и без активного автоплатежа
+        data = db.fetchall("""
+            SELECT u.user_id FROM users u
+            LEFT JOIN rec_payments r ON r.user_id = u.user_id AND r.status = 'active'
+            WHERE u.end_pay != 0 AND r.user_id IS NULL
+        """)
         current_datetime = datetime.now()
         day = current_datetime.day
         if day == 28 or day == 30:

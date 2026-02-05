@@ -188,7 +188,7 @@ async def update_payment_dates(payment):
 async def delete_payment(payment):
     """Удаляет просроченный pending платеж"""
     db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
-    await db.execute("DELETE FROM rec_payments WHERE id = %s", (payment["id"],))
+    await db.execute("DELETE FROM rec_payments WHERE id = ?", (payment["id"],))
     logger_bot.info(f"Удалён pending-платёж старше 3 дней: id={payment['id']}")
 
 

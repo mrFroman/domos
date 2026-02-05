@@ -17,9 +17,9 @@ def get_rec_payment(user_id):
     """Получает активные рекуррентные платежи пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall(
-        "SELECT * FROM rec_payments WHERE user_id = %s AND status = %s",
+        "SELECT * FROM rec_payments WHERE user_id = ? AND status = ?",
         (user_id, "active"),
     )
     return info
@@ -31,14 +31,14 @@ def createRecurrentPayment(payment_id, amount, user_id):
     
     try:
         created_at = datetime.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         db.execute(
             """
             INSERT INTO rec_payments (
                 user_id, amount, currency, is_recurrent, status,
                 rebill_id, payment_id_last, start_pay_date, end_pay_date,
                 created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -65,9 +65,9 @@ def get_user_by_user_id(user_id):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         user = db.fetchone(
-            'SELECT * FROM users WHERE user_id = %s',
+            'SELECT * FROM users WHERE user_id = ?',
             (user_id,)
         )
 
@@ -85,7 +85,7 @@ def getAdmins():
     """Получает список администраторов"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall('SELECT user_id FROM users WHERE rank = 1')
     return info
 
@@ -100,7 +100,7 @@ def save_request_to_db(
     """Сохраняет запрос в БД"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     db.execute('''
         INSERT INTO requests (
             request_type,
@@ -108,7 +108,7 @@ def save_request_to_db(
             request_text,
             user_full_name,
             user_username
-        ) VALUES (%s, %s, %s, %s, %s)
+        ) VALUES (?, ?, ?, ?, ?)
     ''', (
         request_type,
         # SQLite expects str for datetime, PostgreSQL тоже принимает строку
@@ -124,9 +124,9 @@ def get_user_info(user_id: int) -> dict:
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         user_data = db.fetchone(
-            'SELECT full_name, fullName FROM users WHERE user_id = %s',
+            'SELECT full_name, fullName FROM users WHERE user_id = ?',
             (user_id,)
         )
 
@@ -160,9 +160,9 @@ def update_user_full_name(user_id: int, name: str):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         db.execute(
-            "UPDATE users SET full_name = %s WHERE user_id = %s",
+            "UPDATE users SET full_name = ? WHERE user_id = ?",
             (name, user_id))
         return 1  # В PostgreSQL rowcount может работать по-другому, возвращаем 1 при успехе
     except Exception as error:
@@ -175,9 +175,9 @@ def get_user_full_name(user_id: int) -> str:
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         result = db.fetchone(
-            "SELECT full_name FROM users WHERE user_id = %s", (user_id,))
+            "SELECT full_name FROM users WHERE user_id = ?", (user_id,))
         if result:
             if isinstance(result, dict):
                 return result.get('full_name', '') or ''
@@ -193,11 +193,11 @@ def get_rieltor_data(user_id: int) -> dict:
     """Получает данные риелтора из БД"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     data = db.fetchone(
         "SELECT last_name, first_name, middle_name, passport_series, passport_number, "
         "birth_date, birth_place, issued_by, issue_date, department_code, registration_address "
-        "FROM passport_data WHERE user_id = %s AND role = 'rieltor'",
+        "FROM passport_data WHERE user_id = ? AND role = 'rieltor'",
         (user_id,)
     )
 
@@ -226,21 +226,21 @@ def get_last_client_data(user_id: int) -> dict:
     """Получает данные последнего клиента риелтора"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     user_id1 = f"{user_id}_client"
     # Адаптируем запрос для PostgreSQL (SUBSTR и INSTR работают по-другому)
     if DB_TYPE == "postgres":
         query = """
             SELECT last_name, first_name, middle_name, passport_series, passport_number, 
             birth_date, birth_place, issued_by, issue_date, department_code, registration_address 
-            FROM passport_data WHERE user_id = %s AND role = 'client' 
+            FROM passport_data WHERE user_id = ? AND role = 'client' 
             ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC LIMIT 1
         """
     else:
         query = """
             SELECT last_name, first_name, middle_name, passport_series, passport_number, 
             birth_date, birth_place, issued_by, issue_date, department_code, registration_address 
-            FROM passport_data WHERE user_id = %s AND role = 'client' 
+            FROM passport_data WHERE user_id = ? AND role = 'client' 
             ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC LIMIT 1
         """
     
@@ -271,7 +271,7 @@ def update_passport_data(user_id: int, field: str, new_value: str, is_client: bo
     """Обновляет данные паспорта в БД"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
 
     if is_client:
         # Для клиента обновляем последнюю запись
@@ -279,11 +279,11 @@ def update_passport_data(user_id: int, field: str, new_value: str, is_client: bo
         # Адаптируем запрос для PostgreSQL
         if DB_TYPE == "postgres":
             query = f"""
-                UPDATE passport_data SET {field} = %s 
-                WHERE user_id = %s AND role = 'client' 
+                UPDATE passport_data SET {field} = ? 
+                WHERE user_id = ? AND role = 'client' 
                 AND id = (
                     SELECT id FROM passport_data 
-                    WHERE user_id = %s AND role = 'client' 
+                    WHERE user_id = ? AND role = 'client' 
                     ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC 
                     LIMIT 1
                 )
@@ -291,15 +291,15 @@ def update_passport_data(user_id: int, field: str, new_value: str, is_client: bo
             db.execute(query, (new_value, user_id1, user_id1))
         else:
             query = f"""
-                UPDATE passport_data SET {field} = %s 
-                WHERE user_id = %s AND role = 'client' 
+                UPDATE passport_data SET {field} = ? 
+                WHERE user_id = ? AND role = 'client' 
                 ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC LIMIT 1
             """
             db.execute(query, (new_value, user_id1))
     else:
         # Для риелтора
         db.execute(
-            f"UPDATE passport_data SET {field} = %s WHERE user_id = %s AND role = 'rieltor'",
+            f"UPDATE passport_data SET {field} = ? WHERE user_id = ? AND role = 'rieltor'",
             (new_value, user_id)
         )
 
@@ -323,12 +323,12 @@ def get_realtor_and_last_client_data(user_id: int):
     """Получает данные риелтора и последнего клиента"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
 
     try:
         # Получаем данные риелтора
         realtor_result = db.fetchone(
-            "SELECT * FROM passport_data WHERE user_id = %s AND role = 'rieltor'",
+            "SELECT * FROM passport_data WHERE user_id = ? AND role = 'rieltor'",
             (user_id,)
         )
         realtor_data = realtor_result if realtor_result else None
@@ -338,7 +338,7 @@ def get_realtor_and_last_client_data(user_id: int):
             client_query = """
                 SELECT last_name, first_name, middle_name 
                 FROM passport_data 
-                WHERE user_id LIKE %s 
+                WHERE user_id LIKE ? 
                 ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC 
                 LIMIT 1
             """
@@ -346,7 +346,7 @@ def get_realtor_and_last_client_data(user_id: int):
             client_query = """
                 SELECT last_name, first_name, middle_name 
                 FROM passport_data 
-                WHERE user_id LIKE %s 
+                WHERE user_id LIKE ? 
                 ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC 
                 LIMIT 1
             """
@@ -365,17 +365,23 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
     """Сохраняет паспортные данные в БД"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     logger_bot.info(f"Сохраняем паспортные данные в БД")
 
     try:
         client_id = None
         if is_client:
             # Получаем текущее количество клиентов у этого риелтора
-            result = db.fetchone(
-                "SELECT COUNT(*) FROM passport_data WHERE user_id = %s AND role LIKE 'client%%'",
-                (user_id,)
-            )
+            if DB_TYPE == "postgres":
+                result = db.fetchone(
+                    "SELECT COUNT(*) FROM passport_data WHERE user_id = ? AND role LIKE 'client%'",
+                    (user_id,)
+                )
+            else:
+                result = db.fetchone(
+                    "SELECT COUNT(*) FROM passport_data WHERE user_id = ? AND role LIKE 'client%'",
+                    (user_id,)
+                )
             if result:
                 if isinstance(result, dict):
                     count = int(list(result.values())[0])
@@ -387,7 +393,7 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
 
             # Проверяем уникальность (на всякий случай)
             check_result = db.fetchone(
-                "SELECT 1 FROM passport_data WHERE user_id = %s AND client_id = %s",
+                "SELECT 1 FROM passport_data WHERE user_id = ? AND client_id = ?",
                 (user_id, client_id)
             )
             if check_result:
@@ -422,7 +428,7 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
             (user_id, client_id, last_name, first_name, middle_name, 
              passport_series, passport_number, department_code, birth_date, 
              birth_place, issue_date, issued_by, registration_address, role)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, data)
 
         return client_id  # Для клиентов вернет client_1, client_2 и т.д.
@@ -436,7 +442,7 @@ def check_passport_client_exists(user_id):
     """Проверяет существование паспортных данных клиента"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
 
     try:
         # Получаем последнюю запись паспорта для данного user_id
@@ -444,7 +450,7 @@ def check_passport_client_exists(user_id):
             query = """
                 SELECT last_name, first_name, middle_name 
                 FROM passport_data 
-                WHERE user_id LIKE %s 
+                WHERE user_id LIKE ? 
                 ORDER BY CAST(SUBSTRING(client_id FROM POSITION('_' IN client_id) + 1) AS INTEGER) DESC 
                 LIMIT 1
             """
@@ -452,7 +458,7 @@ def check_passport_client_exists(user_id):
             query = """
                 SELECT last_name, first_name, middle_name 
                 FROM passport_data 
-                WHERE user_id LIKE %s 
+                WHERE user_id LIKE ? 
                 ORDER BY CAST(SUBSTR(client_id, INSTR(client_id, '_') + 1) AS INTEGER) DESC 
                 LIMIT 1
             """
@@ -483,13 +489,13 @@ def check_passport_exists(user_id):
     """Проверяет существование полных паспортных данных"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
 
     try:
         # Проверяем, есть ли данные паспорта для данного user_id
         result = db.fetchone("""
             SELECT COUNT(*) FROM passport_data 
-            WHERE user_id = %s AND 
+            WHERE user_id = ? AND 
             last_name IS NOT NULL AND 
             first_name IS NOT NULL AND 
             middle_name IS NOT NULL AND 
@@ -514,7 +520,7 @@ def getUnpaids():
     """Получает список неоплативших пользователей"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall('SELECT full_name FROM users WHERE pay_status = 0')
     return info
 
@@ -559,8 +565,8 @@ def checkUserAdmin(user_id):
     
     exists = checkUserExists(user_id)
     if exists == 'exists':
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        result = db.fetchone('SELECT rank FROM users WHERE user_id = %s', (user_id,))
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        result = db.fetchone('SELECT rank FROM users WHERE user_id = ?', (user_id,))
         if result:
             if isinstance(result, dict):
                 info = str(result.get('rank', '0'))
@@ -578,8 +584,8 @@ def checkAdminLink(linkid):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        result = db.fetchone('SELECT activated FROM admin WHERE link_id = %s', (linkid,))
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        result = db.fetchone('SELECT activated FROM admin WHERE link_id = ?', (linkid,))
         if result:
             if isinstance(result, dict):
                 info = str(result.get('activated', '0'))
@@ -600,8 +606,8 @@ def checkRefLink(linkid, user_id):
     
     exists = checkUserExists(linkid)
     if exists == 'exists':
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO refferal VALUES (%s, %s)", (linkid, user_id,))
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO refferal VALUES (?, ?)", (linkid, user_id,))
         return 'successreferaled'
     else:
         return 'error404'
@@ -625,8 +631,8 @@ def getUserEndPay(user_id):
     """Получает дату окончания подписки пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone('SELECT end_pay FROM users WHERE user_id = %s', (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    result = db.fetchone('SELECT end_pay FROM users WHERE user_id = ?', (user_id,))
     if result:
         if isinstance(result, dict):
             return int(result.get('end_pay', 0))
@@ -639,8 +645,9 @@ def checkUserExists(user_id):
     """Проверяет существование пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone('SELECT * FROM users WHERE user_id = %s', (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone('SELECT * FROM users WHERE user_id = ?', (user_id,))
+
     if info is None:
         return 'empty'
     else:
@@ -653,8 +660,8 @@ def getBannedUserId(user_id):
     
     exists = checkUserExists(user_id)
     if exists == 'exists':
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        result = db.fetchone('SELECT banned FROM users WHERE user_id = %s', (user_id,))
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        result = db.fetchone('SELECT banned FROM users WHERE user_id = ?', (user_id,))
         if result:
             if isinstance(result, dict):
                 return int(result.get('banned', 0))
@@ -667,8 +674,8 @@ def checkUserExistsUsername(username):
     """Проверяет существование пользователя по username"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone('SELECT * FROM users WHERE fullName = %s', (username,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone('SELECT * FROM users WHERE fullName = ?', (username,))
     if info is None:
         return 'empty', 'empty', 'empty', 'empty'
     else:
@@ -688,8 +695,8 @@ def regUser(user_id, username):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO users VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                    (user_id, 0, 0, 0, 0, username, 0, 0, 0,))
         sendLogToAdm(
             f'<i>Новый юзер в боте:</i> @{username} | <code>{user_id}</code>')
@@ -702,42 +709,42 @@ def changeSomeUserParam(user_id, param, paramNew):
     from bot.tgbot.databases.database import DatabaseConnection
     
     # ВАЖНО: param не должен быть пользовательским вводом, только предопределенные значения
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute(f'UPDATE users SET {param} = %s WHERE user_id = %s', (paramNew, user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute(f'UPDATE users SET {param} = ? WHERE user_id = ?', (paramNew, user_id,))
 
 
 def changeUsername(user_id, username):
     """Изменяет username пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET full_name_payments = %s WHERE user_id = %s', (username, user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE users SET full_name_payments = ? WHERE user_id = ?', (username, user_id,))
 
 
 def banUser(user_id):
     """Блокирует пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET banned = 1 WHERE user_id = %s', (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE users SET banned = 1 WHERE user_id = ?', (user_id,))
 
 
 def unbanUser(user_id):
     """Разблокирует пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET banned = 0 WHERE user_id = %s', (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE users SET banned = 0 WHERE user_id = ?', (user_id,))
 
 
 def changeUserAdminLink(user_id, status, string):
     """Изменяет статус админа пользователя и обновляет ссылку"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET rank = %s WHERE user_id = %s', (status, user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE users SET rank = ? WHERE user_id = ?', (status, user_id,))
     db.execute('UPDATE admin SET activated = 1')
-    db.execute('UPDATE admin SET link_id = %s', (string,))
+    db.execute('UPDATE admin SET link_id = ?', (string,))
     db.execute('UPDATE admin SET activated = 0')
 
 
@@ -745,10 +752,10 @@ def takeUserSub(user_id):
     """Отменяет подписку пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET pay_status = 0 WHERE user_id = %s', (user_id,))
-    db.execute('UPDATE users SET last_pay = 0 WHERE user_id = %s', (user_id,))
-    db.execute('UPDATE users SET end_pay = 0 WHERE user_id = %s', (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE users SET pay_status = 0 WHERE user_id = ?', (user_id,))
+    db.execute('UPDATE users SET last_pay = 0 WHERE user_id = ?', (user_id,))
+    db.execute('UPDATE users SET end_pay = 0 WHERE user_id = ?', (user_id,))
 
 
 def changeUserAdmin(user_id):
@@ -756,12 +763,12 @@ def changeUserAdmin(user_id):
     from bot.tgbot.databases.database import DatabaseConnection
     
     now = checkUserAdmin(user_id)
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     if now == 'admin':
-        db.execute('UPDATE users SET rank = 0 WHERE user_id = %s', (user_id,))
+        db.execute('UPDATE users SET rank = 0 WHERE user_id = ?', (user_id,))
         return 'usered'
     else:
-        db.execute('UPDATE users SET rank = 1 WHERE user_id = %s', (user_id,))
+        db.execute('UPDATE users SET rank = 1 WHERE user_id = ?', (user_id,))
         return 'admined'
 
 
@@ -770,8 +777,8 @@ def createRieltor(rieltor_id, fullname, phone, email, photo):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO rieltors VALUES (%s, %s, %s, %s, %s)",
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO rieltors VALUES (?, ?, ?, ?, ?)",
                    (rieltor_id, fullname, email, photo, phone,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
@@ -782,8 +789,8 @@ def createEvent(event_id, desc, date, title, link, name, photo):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO events VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?)",
                    (event_id, desc, date, title, link, name, photo,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
@@ -794,8 +801,8 @@ def createContact(contact_id, fullname, phone, email, photo, job):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO contacts VALUES (%s, %s, %s, %s, %s, %s)",
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO contacts VALUES (?, ?, ?, ?, ?, ?)",
                    (contact_id, fullname, email, photo, phone, job,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
@@ -806,8 +813,8 @@ def createMeeting(user_id, day, meeting_id, roomnum):
     from bot.tgbot.databases.database import DatabaseConnection
     
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO meetings VALUES (%s, %s, %s, %s, %s, %s)",
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO meetings VALUES (?, ?, ?, ?, ?, ?)",
                    (meeting_id, user_id, 0, day, 'None', int(roomnum)))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
@@ -817,8 +824,8 @@ def checkRoom(meeting_id):
     """Получает номер комнаты для встречи"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone('SELECT roomnum FROM meetings WHERE meeting_id = %s', (meeting_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    result = db.fetchone('SELECT roomnum FROM meetings WHERE meeting_id = ?', (meeting_id,))
     if result:
         if isinstance(result, dict):
             return str(result.get('roomnum', ''))
@@ -831,9 +838,9 @@ def checkmeetingid(user_id, date, roomnum, time):
     """Проверяет существование встречи по параметрам"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     result = db.fetchone(
-        'SELECT meeting_id FROM meetings WHERE user_id = %s AND roomnum = %s AND date = %s AND times LIKE %s',
+        'SELECT meeting_id FROM meetings WHERE user_id = ? AND roomnum = ? AND date = ? AND times LIKE ?',
         (user_id, roomnum, date, f'%{time}%'))
     if result:
         if isinstance(result, dict):
@@ -847,8 +854,8 @@ def checkTimes(meeting_id):
     """Получает времена встречи"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone('SELECT times FROM meetings WHERE meeting_id = %s', (meeting_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    result = db.fetchone('SELECT times FROM meetings WHERE meeting_id = ?', (meeting_id,))
     if result:
         if isinstance(result, dict):
             info = str(result.get('times', 'None'))
@@ -872,7 +879,7 @@ def editTimes(meeting_id, time, roomnum):
     from bot.tgbot.databases.database import DatabaseConnection
     
     now_time = checkTimes(meeting_id)
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     if time not in now_time:
         if now_time == 'Empty':
             date = str(checkMeetingDay(meeting_id, roomnum))
@@ -881,7 +888,7 @@ def editTimes(meeting_id, time, roomnum):
                 print(info[0])
                 return 'busied'
             except:
-                db.execute('UPDATE meetings SET times = %s WHERE meeting_id = %s AND roomnum = %s', (time, meeting_id, roomnum))
+                db.execute('UPDATE meetings SET times = ? WHERE meeting_id = ? AND roomnum = ?', (time, meeting_id, roomnum))
         else:
             date = str(checkMeetingDay(meeting_id, roomnum))
             info = checkTimeExists(time, date, roomnum)
@@ -890,22 +897,22 @@ def editTimes(meeting_id, time, roomnum):
                 return 'busied'
             except:
                 finish = now_time + time
-                db.execute('UPDATE meetings SET times = %s WHERE meeting_id = %s AND roomnum = %s', (finish, meeting_id, roomnum))
+                db.execute('UPDATE meetings SET times = ? WHERE meeting_id = ? AND roomnum = ?', (finish, meeting_id, roomnum))
     else:
         now_time = now_time.split(';')
         now_time.remove(time.replace(';', ''))
         full_data = ';'.join(now_time)
         if full_data == '':
             full_data = 'None'
-        db.execute('UPDATE meetings SET times = %s WHERE meeting_id = %s AND roomnum = %s', (str(full_data), meeting_id, roomnum))
+        db.execute('UPDATE meetings SET times = ? WHERE meeting_id = ? AND roomnum = ?', (str(full_data), meeting_id, roomnum))
 
 
 def checkMeetingDay(meeting_id, roomnum):
     """Получает дату встречи"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone("SELECT date FROM meetings WHERE meeting_id = %s AND roomnum = %s", (meeting_id, roomnum))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    result = db.fetchone("SELECT date FROM meetings WHERE meeting_id = ? AND roomnum = ?", (meeting_id, roomnum))
     if result:
         if isinstance(result, dict):
             return result.get('date', '')
@@ -920,8 +927,8 @@ def deleteMeeting(meeting_id):
     
     try:
         meeting_id = str(meeting_id)
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("DELETE FROM meetings WHERE meeting_id = %s", (meeting_id,))
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("DELETE FROM meetings WHERE meeting_id = ?", (meeting_id,))
         return True  # Успешное удаление
     except Exception as e:
         logger_bot.error(f"Ошибка при удалении встречи: {e}")
@@ -932,8 +939,8 @@ def getRieltorId(id):
     """Получает данные риелтора по ID"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone('SELECT * FROM rieltors WHERE id = %s', (id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone('SELECT * FROM rieltors WHERE id = ?', (id,))
     return info
 
 
@@ -941,8 +948,8 @@ def getEventId(id):
     """Получает данные события по ID"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone('SELECT * FROM events WHERE event_id = %s', (id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone('SELECT * FROM events WHERE event_id = ?', (id,))
     return info
 
 
@@ -950,8 +957,8 @@ def getContactId(id):
     """Получает данные контакта по ID"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone('SELECT * FROM contacts WHERE id = %s', (id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone('SELECT * FROM contacts WHERE id = ?', (id,))
     return info
 
 
@@ -959,8 +966,8 @@ def getUserById(id):
     """Получает fullname пользователя по ID"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone('SELECT fullname FROM users WHERE user_id = %s', (id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    result = db.fetchone('SELECT fullname FROM users WHERE user_id = ?', (id,))
     if result:
         if isinstance(result, dict):
             return result.get('fullname', '')
@@ -973,8 +980,8 @@ def checkTimeExists(time, day, roomnum):
     """Проверяет, занято ли время"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall("SELECT times FROM meetings WHERE date = %s AND times LIKE %s AND roomnum = %s", (day, f'%{time}%', roomnum))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchall("SELECT times FROM meetings WHERE date = ? AND times LIKE ? AND roomnum = ?", (day, f'%{time}%', roomnum))
     return info
 
 
@@ -982,10 +989,10 @@ def checkTimeExists1(day, roomnum):
     """Проверяет занятые времена и возвращает словарь {время: имя_пользователя}"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     
     # Получаем все занятые времена и соответствующие user_id
-    time_user_pairs = db.fetchall("SELECT times, user_id FROM meetings WHERE date = %s AND roomnum = %s", (day, roomnum))
+    time_user_pairs = db.fetchall("SELECT times, user_id FROM meetings WHERE date = ? AND roomnum = ?", (day, roomnum))
 
     # Создаем словарь {время: имя_пользователя}
     occupied_times = {}
@@ -1001,7 +1008,7 @@ def checkTimeExists1(day, roomnum):
             continue
 
         # Получаем имя пользователя
-        user_result = db.fetchone("SELECT full_name FROM users WHERE user_id = %s", (user_id,))
+        user_result = db.fetchone("SELECT full_name FROM users WHERE user_id = ?", (user_id,))
         if user_result:
             if isinstance(user_result, dict):
                 user_name = user_result.get('full_name', 'Неизвестный пользователь')
@@ -1023,7 +1030,7 @@ def getAllMeetings():
     """Получает все встречи"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     rows = db.fetchall("SELECT * FROM meetings")
     return rows
 
@@ -1035,8 +1042,8 @@ def makeMeetCompleted(meeting_id, username, roomnum):
     day = str(checkMeetingDay(meeting_id, roomnum))
     times = checkTimes(meeting_id).split(';')
     full_data = ' '.join(times)
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE meetings SET status = 1 WHERE meeting_id = %s AND roomnum = %s', (meeting_id, roomnum))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE meetings SET status = 1 WHERE meeting_id = ? AND roomnum = ?', (meeting_id, roomnum))
     # sendLogToAdm(f'Пользователь @{username} забронировал переговорную на {day} на время: {full_data}')
 #    users = getAllUsersForAd()
 #    for i in users:
@@ -1047,7 +1054,7 @@ def getRieltors():
     """Получает список всех риелторов"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT * FROM rieltors ORDER BY full_name")
     return info
 
@@ -1056,7 +1063,7 @@ def getEvents():
     """Получает список всех событий, отсортированных по дате"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT * FROM events ORDER BY date ASC")
     return info
 
@@ -1065,7 +1072,7 @@ def getContacts():
     """Получает список всех контактов"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT * FROM contacts")
     return info
 
@@ -1074,8 +1081,8 @@ def getUserPay(user_id):
     """Получает статус оплаты пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone("SELECT pay_status FROM users WHERE user_id = %s", (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    result = db.fetchone("SELECT pay_status FROM users WHERE user_id = ?", (user_id,))
     if result:
         if isinstance(result, dict):
             return int(result.get('pay_status', 0))
@@ -1088,8 +1095,8 @@ def getPayment(id):
     """Получает информацию о платеже"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone("SELECT * FROM payments WHERE payment_id = %s", (id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone("SELECT * FROM payments WHERE payment_id = ?", (id,))
     if info:
         if isinstance(info, dict):
             user_id = info.get('user_id', '')
@@ -1124,7 +1131,7 @@ def getPaidUsers():
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall("SELECT full_name FROM users WHERE pay_status = 1")
+    info = db.fetchall("SELECT full_name FROM users WHERE pay_status::int = 1")
     return info
 
 
@@ -1132,8 +1139,8 @@ def getPaidUsersForAd():
     """Получает список ID оплативших пользователей для админов"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall("SELECT user_id FROM users WHERE pay_status = 1")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchall("SELECT user_id FROM users WHERE pay_status::int = 1")
     return info
 
 
@@ -1141,8 +1148,8 @@ def getFreeUsersForAd():
     """Получает список ID неоплативших пользователей для админов"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchall("SELECT user_id FROM users WHERE pay_status = 0")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchall("SELECT user_id FROM users WHERE pay_status::int = 0")
     return info
 
 
@@ -1150,31 +1157,31 @@ def delRietlor(rieltor_id):
     """Удаляет риелтора"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute("DELETE FROM rieltors WHERE id = %s", (rieltor_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute("DELETE FROM rieltors WHERE id = ?", (rieltor_id,))
 
 
 def delContact(contact_id):
     """Удаляет контакт"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute("DELETE FROM contacts WHERE id = ?", (contact_id,))
 
 
 def delEvent(event_id):
     """Удаляет событие"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute("DELETE FROM events WHERE event_id = %s", (event_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute("DELETE FROM events WHERE event_id = ?", (event_id,))
 
 
 def getAllUsersForAd():
     """Получает список всех ID пользователей для админов"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT user_id FROM users")
     return info
 
@@ -1183,7 +1190,7 @@ def getAllUsersForApi():
     """Получает всех пользователей для API"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT * FROM users")
     return info
 
@@ -1192,7 +1199,7 @@ def getAllPaymentsForApi():
     """Получает все платежи для API, отсортированные по времени"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT * FROM payments ORDER BY ts DESC")
     return info
 
@@ -1202,7 +1209,7 @@ def getFreeUsersCount():
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone("SELECT COUNT(*) FROM users WHERE pay_status = 0")
+    result = db.fetchone("SELECT COUNT(*) FROM users WHERE pay_status::int = 0")
     if result:
         if isinstance(result, dict):
             return int(list(result.values())[0])
@@ -1243,8 +1250,8 @@ def getUserRef(user_id):
     """Получает ID реферера пользователя"""
     from bot.tgbot.databases.database import DatabaseConnection
     
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    info = db.fetchone("SELECT reffer_id FROM refferal WHERE user_id = %s", (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    info = db.fetchone("SELECT reffer_id FROM refferal WHERE user_id = ?", (user_id,))
     if info is not None:
         if isinstance(info, dict):
             reffer_id = int(info.get('reffer_id', 0))
@@ -1275,10 +1282,10 @@ def giveUserSub(user_id, months):
         timestamp2 = time.mktime(n.timetuple())
 
     timestamp2 = int(timestamp2)
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    db.execute('UPDATE users SET last_pay = %s WHERE user_id = %s', (now_ts, user_id,))
-    db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp2, user_id,))
-    db.execute('UPDATE users SET pay_status = 1 WHERE user_id = %s', (user_id,))
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+    db.execute('UPDATE users SET last_pay = ? WHERE user_id = ?', (now_ts, user_id,))
+    db.execute('UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp2, user_id,))
+    db.execute('UPDATE users SET pay_status = 1 WHERE user_id = ?', (user_id,))
 
 
 def makePaymentCompleted(id):
@@ -1286,7 +1293,7 @@ def makePaymentCompleted(id):
     from bot.tgbot.databases.database import DatabaseConnection
     
     user_id, amount, created, status = getPayment(id)
-    db = DatabaseConnection(MAIN_DB_PATH, schema="main")
+    db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     t = datetime.date.today()
     now_ts = int(time.time())
     current_datetime = datetime.now()
@@ -1341,10 +1348,10 @@ def makePaymentCompleted(id):
     ref = getUserRef(user_id)
 
     if status == 0:
-        db.execute('UPDATE payments SET status = 1 WHERE payment_id = %s', (id,))
-        db.execute('UPDATE users SET last_pay = %s WHERE user_id = %s', (now_ts, user_id,))
-        db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp2, user_id,))
-        db.execute('UPDATE users SET pay_status = 1 WHERE user_id = %s', (user_id,))
+        db.execute('UPDATE payments SET status = 1 WHERE payment_id = ?', (id,))
+        db.execute('UPDATE users SET last_pay = ? WHERE user_id = ?', (now_ts, user_id,))
+        db.execute('UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp2, user_id,))
+        db.execute('UPDATE users SET pay_status = 1 WHERE user_id = ?', (user_id,))
         if ref == '404':
             pass
         else:
@@ -1363,7 +1370,7 @@ def makePaymentCompleted(id):
             datetime_object = datetime.strptime(
                 new_dt, '%Y-%d-%m %H:%M:%S')
             timestamp = int(round(datetime_object.timestamp()))
-            db.execute('UPDATE users SET end_pay = %s WHERE user_id = %s', (timestamp, ref,))
+            db.execute('UPDATE users SET end_pay = ? WHERE user_id = ?', (timestamp, ref,))
             sendLogToUser(
                 f'Ваш рефферал с ID {user_id} купил подписку, к вашей подписке добавлен 1 месяц.', ref)
 
@@ -1374,7 +1381,7 @@ def createPayment(id, amount, user_id):
     
     now_ts = int(time.time())
     try:
-        db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-        db.execute("INSERT INTO payments VALUES (%s, %s, %s, %s, 0)", (user_id, id, amount, now_ts,))
+        db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
+        db.execute("INSERT INTO payments VALUES (?, ?, ?, ?, 0)", (user_id, id, amount, now_ts,))
     except Exception as e:
         logger_bot.error('SQL ERROR ' + str(e))
