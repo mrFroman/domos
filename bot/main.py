@@ -90,13 +90,13 @@ def api():
             user_list = []
             for user in users:
                 user_dict = {
-                    "user_id": user[0],
-                    "pay_status": user[1],
-                    "last_pay": user[2],
-                    "rank": user[3],
-                    "end_pay": user[4],
-                    "fullName": user[5],
-                    "banned": user[6]
+                    "user_id": user.get("user_id", 0),
+                    "pay_status": user.get("pay_status", 0),
+                    "last_pay": user.get("last_pay", 0),
+                    "rank": user.get("rank", 0),
+                    "end_pay": user.get("end_pay", 0),
+                    "fullName": user.get("full_name", ""),
+                    "banned": user.get("banned", 0)
                 }
                 user_list.append(user_dict)
             return jsonify(user_list)
@@ -107,10 +107,10 @@ def api():
             for payment in payments:
                 user_dict = {
                     "user_id": payment[0],
-                    "payment_id": payment[1],
-                    "amount": payment[2],
-                    "ts": payment[3],
-                    "status": payment[4],
+                    "payment_id": payment.get("payment_id", ""),
+                    "amount": payment.get("amount", 0),
+                    "ts": payment.get("ts", ''),
+                    "status": payment.get("status", 0),
                 }
                 payments_list.append(user_dict)
             return jsonify(payments_list)
