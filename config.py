@@ -200,6 +200,12 @@ class Miscellaneous:
 
 
 @dataclass
+class TinkoffConfig:
+    terminal_key: str
+    password: str
+
+
+@dataclass
 class Config:
     tg_bot: TgBot
     db: DbConfig
@@ -237,5 +243,9 @@ def load_config(env_path=None) -> Config:
         ),
         misc=Miscellaneous(
             other_params=os.getenv("OTHER_PARAMS"),
+        ),
+        tinkoff=TinkoffConfig(
+            terminal_key=os.getenv("TINKOFF_TERMINAL_KEY"),
+            password=os.getenv("TINKOFF_PASSWORD"),
         ),
     )
