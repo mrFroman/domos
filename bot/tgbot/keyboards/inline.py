@@ -687,7 +687,10 @@ def genRieltorsList(page, items_per_page=25):
     rieltors_page = rieltors[start_index:end_index]
 
     for i in rieltors_page:
-        mk.add(InlineKeyboardButton(i[1], callback_data=f"showrieltor_{i[0]}"))
+        mk.add(InlineKeyboardButton(
+            i.get("full_name", "Без имени"), 
+            callback_data=f"showrieltor_{i.get('id', '')}"
+            ))
 
     navigation_buttons = []
     if page > 1:
@@ -713,6 +716,9 @@ def genContactsList():
     mk = InlineKeyboardMarkup(row_width=1)
     contacts = getContacts()
     for i in contacts:
-        mk.add(InlineKeyboardButton(i[5], callback_data=f"showcontacts_{i[0]}"))
+        mk.add(InlineKeyboardButton(
+            i.get("full_name", "Без имени"), 
+            callback_data=f"showcontacts_{i.get('id', '')}"
+            ))
     mk.add(helpfulbackbtn)
     return mk

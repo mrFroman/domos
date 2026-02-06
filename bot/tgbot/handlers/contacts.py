@@ -20,27 +20,41 @@ async def contacts_inline(cb: CallbackQuery):
 
 async def showcontact_inline(cb: CallbackQuery):
     username = cb.from_user.username
-    if username == None:
+    if not username:
         await cb.message.edit_text('''
 Для корректной работы необходимо в настройках изменить имя пользователя!
 Как это сделать:
 Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
 После изменения @username войдите в бот по ссылке еще раз и нажмите /start
 ''')
-    else:
-        contact_id = cb.data.split('_')[1]
-        contact = getContactId(contact_id)
-        name = contact[1]
-        email = contact[2]
-        photo = contact[3]
-        phone = contact[4]
-        job = contact[5]
-        msg = f'''
-<code>🧿 ФИО:</code> {name}
-<code>👨‍💼 Должность:</code> {job}         
-<code>📱 Телефон:</code> {phone}     
-<code>📩 E-mail:</code> {email}'''
-        await cb.message.answer_photo(photo, msg, reply_markup=GenContactShowMK(cb.from_user.id, contact_id))
+        return
+
+    contact_id = cb.data.split('_')[1]
+    contact = getContactId(contact_id)
+
+    name = contact.get("full_name", "Без имени")
+    email = contact.get("email", "Без email")
+    photo = contact.get("photo")  # file_id Telegram
+    phone = contact.get("phone", "Без телефона")
+    job = contact.get("job", "Без должности")
+
+    msg = f'''
+        <code>🧿 ФИО:</code> {name}
+        <code>👨‍💼 Должность:</code> {job}         
+        <code>📱 Телефон:</code> {phone}     
+        <code>📩 E-mail:</code> {email}
+        '''
+
+    try:
+        # Если фото есть, пробуем отправить
+        if photo:
+            await cb.message.answer_photo(photo, msg, reply_markup=GenContactShowMK(cb.from_user.id, contact_id))
+        else:
+            raise ValueError("Фото отсутствует")
+    except Exception as e:
+        # Если ошибка (например WrongFileIdentifier) → просто текст
+        logger_bot.warning(f"Фото контакта {contact_id} не отправлено: {e}")
+        await cb.message.answer(msg, reply_markup=GenContactShowMK(cb.from_user.id, contact_id))
 
 
 async def delcontact_inline(cb: CallbackQuery):

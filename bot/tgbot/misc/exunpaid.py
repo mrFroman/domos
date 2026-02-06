@@ -225,10 +225,10 @@ def create_excel_lawyer():
     for idx, unpaid in enumerate(
         unpaids, start=2
     ):  # Начинаем с 2 строки (после заголовков)
-        sheet[f"A{idx}"] = unpaid[0]  # Имя
-        sheet[f"B{idx}"] = unpaid[1]  # Дата оплаты
-        sheet[f"C{idx}"] = unpaid[2]
-        sheet[f"D{idx}"] = unpaid[3]  # Дата окончания
+        sheet[f"A{idx}"] = unpaid.get("formatted_date", "")
+        sheet[f"B{idx}"] = unpaid.get("request_text", "")
+        sheet[f"C{idx}"] = unpaid.get("user_full_name", "")
+        sheet[f"D{idx}"] = unpaid.get("user_username", "")
         counter += 1
 
     # Сохраняем книгу возле скрипта
@@ -296,7 +296,7 @@ def get_advert_requests_new():
             user_id,
             data_json
         FROM tokens
-        WHERE payment_status = 1
+        WHERE payment_status::int = 1
         ORDER BY created_at DESC
         """
     )
@@ -347,10 +347,10 @@ def create_excel_advert():
     for idx, unpaid in enumerate(
         unpaids, start=2
     ):  # Начинаем с 2 строки (после заголовков)
-        sheet[f"A{idx}"] = unpaid[0]  # Имя
-        sheet[f"B{idx}"] = unpaid[1]  # Дата оплаты
-        sheet[f"C{idx}"] = unpaid[2]
-        sheet[f"D{idx}"] = unpaid[3]  # Дата окончания
+        sheet[f"A{idx}"] = unpaid.get("formatted_date", "")
+        sheet[f"B{idx}"] = unpaid.get("request_text", "")
+        sheet[f"C{idx}"] = unpaid.get("user_full_name", "")
+        sheet[f"D{idx}"] = unpaid.get("user_username", "")
         counter += 1
 
     # Сохраняем книгу возле скрипта

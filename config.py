@@ -182,9 +182,16 @@ class MiscConfig:
 
 
 @dataclass
+class TinkoffConfig:
+    terminal_key: str
+    password: str
+
+
+@dataclass
 class Config:
     tg_bot: TgBotConfig
     db: DbConfig
+    tinkoff: TinkoffConfig
     yandex_gpt: YandexGPTConfig
     open_ai: OpenAIConfig
     misc: MiscConfig
@@ -215,6 +222,10 @@ def load_config(env_path=None) -> Config:
         ),
         misc=MiscConfig(
             other_params=os.getenv("OTHER_PARAMS"),
+        ),
+        tinkoff=TinkoffConfig(
+            terminal_key=os.getenv("TINKOFF_TERMINAL_KEY"),
+            password=os.getenv("TINKOFF_PASSWORD"),
         ),
     )
 

@@ -374,7 +374,7 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
             # Получаем текущее количество клиентов у этого риелтора
             if DB_TYPE == "postgres":
                 result = db.fetchone(
-                    "SELECT COUNT(*) FROM passport_data WHERE user_id::text = ? AND role LIKE 'client%'",
+                    "SELECT COUNT(*) FROM passport_data WHERE user_id::text = '?' AND role LIKE 'client%'",
                     (user_id,)
                 )
             else:
@@ -495,7 +495,7 @@ def check_passport_exists(user_id):
         # Проверяем, есть ли данные паспорта для данного user_id
         result = db.fetchone("""
             SELECT COUNT(*) FROM passport_data 
-            WHERE user_id::text = ? AND 
+            WHERE user_id::text = '?' AND 
             last_name IS NOT NULL AND 
             first_name IS NOT NULL AND 
             middle_name IS NOT NULL AND 
@@ -675,13 +675,13 @@ def checkUserExistsUsername(username):
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
-    info = db.fetchone('SELECT * FROM users WHERE fullName = ?', (username,))
+    info = db.fetchone('SELECT * FROM users WHERE full_name = ?', (username,))
     if info is None:
         return 'empty', 'empty', 'empty', 'empty'
     else:
         if isinstance(info, dict):
             user_id = info.get('user_id', 'empty')
-            pay_status = info.get('pay_status', 'empty')
+            pay_status = info.get('pay_status::int', 'empty')
             rank = info.get('rank', 'empty')
         else:
             user_id = info[0] if len(info) > 0 else 'empty'
@@ -1117,7 +1117,7 @@ def getPaidUsersCount():
     from bot.tgbot.databases.database import DatabaseConnection
     
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
-    result = db.fetchone("SELECT COUNT(*) FROM users WHERE pay_status = 1")
+    result = db.fetchone("SELECT COUNT(*) FROM users WHERE pay_status::int = 1")
     if result:
         if isinstance(result, dict):
             return int(list(result.values())[0])

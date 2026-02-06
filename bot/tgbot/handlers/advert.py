@@ -200,13 +200,13 @@ async def send_advert_to_manager(
         # Формируем имя отправителя
         if user_info.get("full_name"):
             sender_name = user_info["full_name"]
-        elif user_info.get("fullName"):
-            sender_name = user_info["fullName"]
+        elif user_info.get("full_name_payments"):
+            sender_name = user_info["full_name"]
         else:
             sender_name = f"Пользователь с ID {user_id}"
 
         # Формируем ссылку на пользователя
-        username = user_info.get("fullName")
+        username = user_info.get("full_name")
         user_link = f"@{username}"
 
         # ID менеджера по рекламе

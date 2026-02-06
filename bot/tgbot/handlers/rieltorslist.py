@@ -21,26 +21,39 @@ async def rieltors_inline(cb: CallbackQuery):
 
 async def showrieltor_inline(cb: CallbackQuery):
     username = cb.from_user.username
-    if username == None:
+    if not username:
         await cb.message.edit_text('''
 Для корректной работы необходимо в настройках изменить имя пользователя!
 Как это сделать:
 Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
 После изменения @username войдите в бот по ссылке еще раз и нажмите /start
 ''')
-    else:
-        rieltor_id = cb.data.split('_')[1]
-        rieltor = getRieltorId(rieltor_id)
-        name = rieltor[1]
-        email = rieltor[2]
-        photo = rieltor[3]
-        phone = rieltor[4]
-        msg = f'''
-<code>🧿 ФИО:</code> {name}         
-<code>📱 Телефон:</code> {phone}     
-<code>📩 E-mail:</code> {email}             
-'''
-        await cb.message.answer_photo(photo, msg, reply_markup=GenRieltorShowMK(cb.from_user.id, rieltor_id))
+        return
+
+    rieltor_id = cb.data.split('_')[1]
+    rieltor = getRieltorId(rieltor_id)
+
+    name = rieltor.get("full_name", "Без имени")
+    email = rieltor.get("email", "Без email")
+    photo = rieltor.get("photo")  # это file_id от Telegram
+    phone = rieltor.get("phone", "Без телефона")
+
+    msg = f'''
+        <code>🧿 ФИО:</code> {name}         
+        <code>📱 Телефон:</code> {phone}     
+        <code>📩 E-mail:</code> {email}             
+        '''
+
+    try:
+        # Попытка отправить фото
+        if photo:
+            await cb.message.answer_photo(photo, msg, reply_markup=GenRieltorShowMK(cb.from_user.id, rieltor_id))
+        else:
+            raise ValueError("Фото отсутствует")
+    except Exception as e:
+        # Если ошибка (например WrongFileIdentifier) → просто текст
+        logger_bot.warning(f"Фото риелтора {rieltor_id} не отправлено: {e}")
+        await cb.message.answer(msg, reply_markup=GenRieltorShowMK(cb.from_user.id, rieltor_id))
 
 
 async def delrieltor_inline(cb: CallbackQuery):
