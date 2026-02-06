@@ -21,7 +21,7 @@ async def get_due_recurrents():
             WHERE is_recurrent = 1
             AND status = 'active'
             AND rebill_id IS NOT NULL
-            AND end_pay_date <= %s
+            AND end_pay_date <= ?
         """
         rows = await db.fetchall(query, (now,))
     else:
@@ -107,7 +107,7 @@ async def update_payment_dates(payment):
     db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
     
     # 1. Получаем user_id по payment.id
-    payment_row = await db.fetchone("SELECT user_id FROM rec_payments WHERE id = %s", (payment["id"],))
+    payment_row = await db.fetchone("SELECT user_id FROM rec_payments WHERE id = ?", (payment["id"],))
     
     if not payment_row:
         raise ValueError(f"Платёж с id={payment['id']} не найден")
@@ -125,11 +125,11 @@ async def update_payment_dates(payment):
         await db.execute(
             """
             UPDATE rec_payments
-            SET start_pay_date = %s,
-                end_pay_date = %s,
+            SET start_pay_date = ?,
+                end_pay_date = ?,
                 updated_at = NOW(),
                 retry_count = 0
-            WHERE id = %s
+            WHERE id = ?
             """,
             (new_start.isoformat(), new_end.isoformat(), payment["id"]),
         )
@@ -151,9 +151,9 @@ async def update_payment_dates(payment):
         """
         UPDATE users
         SET pay_status = 1,
-            last_pay = %s,
-            end_pay = %s
-        WHERE user_id = %s
+            last_pay = ?,
+            end_pay = ?
+        WHERE user_id = ?
         """,
         (start_ts, end_ts, user_id),
     )
@@ -201,10 +201,10 @@ async def mark_failed(payment, reason):
             """
             UPDATE rec_payments
             SET status = 'failed',
-                fail_reason = %s,
+                fail_reason = ?,
                 retry_count = retry_count + 1,
                 updated_at = NOW()
-            WHERE id = %s
+            WHERE id = ?
         """,
             (reason, payment["id"]),
         )
