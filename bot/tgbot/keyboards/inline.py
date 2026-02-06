@@ -256,7 +256,7 @@ def genAnalysisMk():
     mk = InlineKeyboardMarkup(row_width=1)
     paid_users = getPaidUsers()
     for i in paid_users:
-        mk.add(InlineKeyboardButton(f"@{i[0]}", callback_data="emptydata"))
+        mk.add(InlineKeyboardButton(f"@{i.get('full_name', '')}", callback_data="emptydata"))
     mk.row(mainmenu_btn)
     return mk
 
@@ -267,12 +267,12 @@ def genEventsMk(user_id):
     now = datetime.datetime.now().timestamp()
 
     for i in events:
-        if i[2] < now:  # если дата события меньше текущего времени
+        if i.get('date', 0) < now:  # если дата события меньше текущего времени
             continue
-        dt_object = datetime.datetime.fromtimestamp(i[2]).strftime("%d-%m-%Y %H:%M")
+        dt_object = datetime.datetime.fromtimestamp(i.get('date', 0)).strftime("%d-%m-%Y %H:%M")
         mk.add(
             InlineKeyboardButton(
-                f"{i[3]} [{dt_object}]", callback_data=f"checkevent_{i[0]}"
+                f"{i.get('name', '')} [{dt_object}]", callback_data=f"checkevent_{i.get('event_id', '')}"
             )
         )
     adm = checkUserAdmin(user_id)

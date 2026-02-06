@@ -1190,6 +1190,7 @@ def getAllUsersForApi():
     """Получает всех пользователей для API"""
     from bot.tgbot.databases.database import DatabaseConnection
     
+    
     db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
     info = db.fetchall("SELECT * FROM users")
     return info
