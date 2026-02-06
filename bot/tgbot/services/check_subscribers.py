@@ -6,7 +6,7 @@ from aiogram.utils.exceptions import Unauthorized, BadRequest
 from pathlib import Path
 from dotenv import load_dotenv
 
-from bot.tgbot.databases.database import AsyncDatabaseConnection
+from bot.tgbot.databases.database import AsyncDatabaseConnection, DB_TYPE
 from config import MAIN_DB_PATH
 
 path = str(Path(__file__).parents[2])
@@ -37,7 +37,11 @@ async def send_subscription_reminders():
         db = AsyncDatabaseConnection(MAIN_DB_PATH, schema="main")
 
         # Получаем пользователей с активной подпиской
-        users = await db.fetchall("SELECT user_id FROM users WHERE pay_status::int = 1")
+        # Для PostgreSQL используем ::int, для SQLite используем CAST
+        if DB_TYPE == "postgres":
+            users = await db.fetchall("SELECT user_id FROM users WHERE pay_status::int = 1")
+        else:
+            users = await db.fetchall("SELECT user_id FROM users WHERE CAST(pay_status AS INTEGER) = 1")
         logging.info(f"Найдено активных пользователей: {len(users)}")
 
         for user_row in users:

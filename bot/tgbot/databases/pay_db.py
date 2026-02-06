@@ -126,7 +126,7 @@ def get_user_info(user_id: int) -> dict:
     try:
         db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         user_data = db.fetchone(
-            'SELECT full_name, fullName FROM users WHERE user_id = ?',
+            'SELECT full_name, full_name_payments FROM users WHERE user_id = ?',
             (user_id,)
         )
 
@@ -151,10 +151,10 @@ def get_user_info(user_id: int) -> dict:
 
 def update_user_full_name(user_id: int, name: str):
     """
-    Обновляет поле full_name для всех записей с указанным user_id
+    Обновляет поле full_name_payments для всех записей с указанным user_id
 
     :param user_id: ID пользователя для поиска
-    :param name: Новое значение для поля full_name
+    :param name: Новое значение для поля full_name_payments
     :return: Количество обновленных строк
     """
     from bot.tgbot.databases.database import DatabaseConnection
@@ -162,7 +162,7 @@ def update_user_full_name(user_id: int, name: str):
     try:
         db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         db.execute(
-            "UPDATE users SET full_name = ? WHERE user_id = ?",
+            "UPDATE users SET full_name_payments = ? WHERE user_id = ?",
             (name, user_id))
         return 1  # В PostgreSQL rowcount может работать по-другому, возвращаем 1 при успехе
     except Exception as error:
@@ -177,10 +177,10 @@ def get_user_full_name(user_id: int) -> str:
     try:
         db = DatabaseConnection(MAIN_DB_PATH, schema="main" if DB_TYPE == "postgres" else None)
         result = db.fetchone(
-            "SELECT full_name FROM users WHERE user_id = ?", (user_id,))
+            "SELECT full_name_payments FROM users WHERE user_id = ?", (user_id,))
         if result:
             if isinstance(result, dict):
-                return result.get('full_name', '') or ''
+                return result.get('full_name_payments', '') or ''
             else:
                 return result[0] if result[0] else ''
         return ''
@@ -374,7 +374,7 @@ def save_passport(passport_data: dict, user_id, registration_data: dict, is_clie
             # Получаем текущее количество клиентов у этого риелтора
             if DB_TYPE == "postgres":
                 result = db.fetchone(
-                    "SELECT COUNT(*) FROM passport_data WHERE user_id = ? AND role LIKE 'client%'",
+                    "SELECT COUNT(*) FROM passport_data WHERE user_id::text = ? AND role LIKE 'client%'",
                     (user_id,)
                 )
             else:
@@ -495,7 +495,7 @@ def check_passport_exists(user_id):
         # Проверяем, есть ли данные паспорта для данного user_id
         result = db.fetchone("""
             SELECT COUNT(*) FROM passport_data 
-            WHERE user_id = ? AND 
+            WHERE user_id::text = ? AND 
             last_name IS NOT NULL AND 
             first_name IS NOT NULL AND 
             middle_name IS NOT NULL AND 

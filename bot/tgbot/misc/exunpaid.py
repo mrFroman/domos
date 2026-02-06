@@ -39,7 +39,7 @@ scope = [
 def getUnpaids():
     """Получает список неоплативших пользователей"""
     db = get_db_connection(MAIN_DB_PATH, schema="main")
-    usernames = db.fetchall("SELECT full_name FROM users WHERE pay_status = 0")
+    usernames = db.fetchall("SELECT full_name FROM users WHERE pay_status::int = 0")
     return usernames
 
 
@@ -63,7 +63,7 @@ def create_excel():
     for idx, unpaid in enumerate(
         unpaids, start=2
     ):  # Начинаем с 2, чтобы не перезаписать заголовок
-        sheet[f"A{idx}"] = unpaid[0]  # Юзернейм
+        sheet[f"A{idx}"] = unpaid["full_name"] # unpaid[0]  # Юзернейм
         counter += 1
 
     sheet["D1"] = "Всего:"  # Пишем заголовок в объединенные ячейки
@@ -85,13 +85,13 @@ def getpaids():
         query = """
         SELECT
             full_name,
-            fullName,
+            full_name_payments,
             TO_CHAR(TO_TIMESTAMP(last_pay), 'DD-MM-YYYY HH24:MI') as last_pay,
             TO_CHAR(TO_TIMESTAMP(end_pay), 'DD-MM-YYYY HH24:MI') as end_pay
         FROM
             users
         WHERE
-            pay_status = 1
+            pay_status::int = 1
         ORDER BY
             last_pay ASC
         """
@@ -126,7 +126,7 @@ def create_excel1():
     sheet["A1"].font = Font(size=15)
 
     # Добавляем данные
-    unpaids = (
+    paids = (
         getpaids()
     )  # Предполагаем, что функция возвращает данные в формате (name, last_pay, end_pay)
     counter = 0
@@ -138,13 +138,17 @@ def create_excel1():
     sheet["D2"] = "До какого оплатил"
 
     # Записываем данные
-    for idx, unpaid in enumerate(
-        unpaids, start=3
+    for idx, paid in enumerate(
+        paids, start=3
     ):  # Начинаем с 2 строки (после заголовков)
-        sheet[f"A{idx}"] = unpaid[0]
-        sheet[f"B{idx}"] = unpaid[1]  # Имя
-        sheet[f"C{idx}"] = unpaid[2]  # Дата оплаты
-        sheet[f"D{idx}"] = unpaid[3]  # Дата окончания
+        # sheet[f"A{idx}"] = unpaid[0]
+        # sheet[f"B{idx}"] = unpaid[1]  # Имя
+        # sheet[f"C{idx}"] = unpaid[2]  # Дата оплаты
+        # sheet[f"D{idx}"] = unpaid[3]  # Дата окончания
+        sheet[f"A{idx}"] = paid.get("full_name", "")
+        sheet[f"B{idx}"] = paid.get("full_name_payments", "")
+        sheet[f"C{idx}"] = paid.get("last_pay", "")
+        sheet[f"D{idx}"] = paid.get("end_pay", "")
         counter += 1
 
     sheet["E1"] = "Всего:"  # Пишем заголовок в объединенные ячейки
