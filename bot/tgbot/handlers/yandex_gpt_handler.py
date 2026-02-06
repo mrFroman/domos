@@ -267,8 +267,27 @@ async def run_chat_with_tools(user_id: int, user_msg: str, max_history: int = 3)
 
     try:
         # Выполняем web_search_preview
-        web_response = await openai_client.responses.create(
-            model="openai/gpt-5",
+        # web_response = await openai_client.responses.create(
+        #     model="openai/gpt-5",
+        #     tools=[
+        #         {
+        #             "type": "web_search_preview",
+        #             "user_location": {
+        #                 "type": "approximate",
+        #                 "country": "RU",
+        #                 "city": "Ekaterinburg",
+        #                 "region": "Ekaterinburg",
+        #             },
+        #             "search_context_size": "low",
+        #         }
+        #     ],
+        #     input=combined_input,
+        # )
+        web_response = await openai_client.chat.completions.create(
+            model="gpt-5",
+            messages=[
+                {"role": "user", "content": combined_input}
+            ],
             tools=[
                 {
                     "type": "web_search_preview",
@@ -281,9 +300,7 @@ async def run_chat_with_tools(user_id: int, user_msg: str, max_history: int = 3)
                     "search_context_size": "low",
                 }
             ],
-            input=combined_input,
         )
-
         text = extract_text(web_response)
         final_answer = text or "Извините, не удалось получить ответ."
         return final_answer

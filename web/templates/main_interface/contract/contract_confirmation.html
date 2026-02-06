@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function checkStatus() {
-        fetch(`/domosclub/contract/check_processing_status/?token=${token}`)
+        fetch(`{% url 'check_processing_status' %}?token=${token}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

@@ -9,6 +9,8 @@
 
 <script>
 let paymentCheckInterval = null;
+// Базовый URL для проверки оплаты (Django автоматически добавит префикс /domosclub через FORCE_SCRIPT_NAME)
+const paymentCheckUrlBase = "{% url 'payment_sub_check' 0 %}".replace(/\/\d+\//, '/');
 
 // Загрузка шага через AJAX
 function loadStep(params) {
@@ -36,7 +38,7 @@ function startPaymentCheck(paymentId) {
     if (!statusBlock) return;
 
     paymentCheckInterval = setInterval(() => {
-        fetch(`/domosclub/payments/payment_sub_check/${paymentId}`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        fetch(paymentCheckUrlBase + paymentId + '/', {headers: {'X-Requested-With': 'XMLHttpRequest'}})
             .then(r => r.json())
             .then(data => {
                 if (data.status === 1) {

@@ -11,6 +11,7 @@ from datetime import datetime
 
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, FileResponse, Http404
+from django.urls import reverse
 from typing import cast
 from aiogram.dispatcher import FSMContext
 from django.views.decorators.csrf import csrf_exempt
@@ -604,7 +605,7 @@ def check_processing_status(request):
                         "success": True,
                         "status": "completed",
                         "message": "Договор готов",
-                        "file_url": f"/domosclub/contract/download_contract/{token}/",
+                        "file_url": reverse("download_contract", args=[token]),
                     }
                 )
 

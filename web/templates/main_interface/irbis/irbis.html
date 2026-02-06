@@ -156,6 +156,8 @@
 
 <script>
 let paymentCheckInterval = null;
+// Базовый URL для проверки оплаты (Django автоматически добавит префикс /domosclub через FORCE_SCRIPT_NAME)
+const irbisPaymentCheckUrlBase = "{% url 'irbis_payment_check' 'PLACEHOLDER' %}".replace(/PLACEHOLDER/, '');
 
 // Загрузка шага через AJAX
 function loadStep(params) {
@@ -183,7 +185,7 @@ function startPaymentCheck(paymentId) {
     if (!statusBlock) return;
 
     paymentCheckInterval = setInterval(() => {
-        fetch(`/domosclub/irbis/payment_check/${paymentId}`, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        fetch(irbisPaymentCheckUrlBase + paymentId, {headers: {'X-Requested-With': 'XMLHttpRequest'}})
             .then(r => r.json())
             .then(data => {
                 if (data.status === 1) {

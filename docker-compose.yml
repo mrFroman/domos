@@ -81,7 +81,7 @@ services:
       - ./api:/app/api
       - ./bot:/app/bot
       - ./config.py:/app/config.py:ro
-      - ./vector_index:/app/bot/tgbot/vector_index
+      - ./bot/tgbot/vector_index:/app/bot/tgbot/vector_index
     command: python -m api.main
     restart: unless-stopped
     networks:
