@@ -36,20 +36,20 @@ async def showevent_inline(cb: CallbackQuery):
     else:
         event_id = cb.data.split('_')[1]
         event = getEventId(event_id)
-        desc = event[1]
-        date = event[2]
-        link = event[4]
-        name = event[5]
-        photo = str(event[6])
+        desc = event.get("description", "")
+        date = event.get("date", 0)
+        link = event.get("link", "")
+        name = event.get("name", "")
+        photo = str(event.get("photo", ""))
         print(date)
         dt_object = datetime.datetime.fromtimestamp(date).strftime('%d-%m-%Y %H:%M')
         msg = f'''
-<code>🧿 Название:</code> {name}
+            <code>🧿 Название:</code> {name}
 
-<code>📝 Описание:</code> {desc}     
-<code>⏰ Дата:</code> {dt_object}    
-<code>🔗 Ссылка:</code> {link}                
-'''
+            <code>📝 Описание:</code> {desc}     
+            <code>⏰ Дата:</code> {dt_object}    
+            <code>🔗 Ссылка:</code> {link}                
+            '''
         MAX_MESSAGE_LENGTH = 4096  # лимит Telegram на длину текста
         MAX_CAPTION_LENGTH = 1024  # лимит на caption фото
 
@@ -93,11 +93,11 @@ async def addEvent_inline(cb: CallbackQuery, state: FSMContext):
     username = cb.from_user.username
     if username == None:
         await cb.message.edit_text('''
-Для корректной работы необходимо в настройках изменить имя пользователя!
-Как это сделать:
-Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
-После изменения @username войдите в бот по ссылке еще раз и нажмите /start
-''')
+            Для корректной работы необходимо в настройках изменить имя пользователя!
+            Как это сделать:
+            Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
+            После изменения @username войдите в бот по ссылке еще раз и нажмите /start
+            ''')
     else:
         await cb.message.edit_text('<b>Введите заголовок события:</b>', reply_markup=mainmenu_mk)
         await state.set_state(addEventStates.title.state)

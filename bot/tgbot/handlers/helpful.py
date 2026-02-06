@@ -679,11 +679,11 @@ async def conturAccess_inline(cb: CallbackQuery):
                 )
             else:
                 msg = """
-<i>Доступ к сервису проверок</i>
-https://reestro.kontur.ru/
-domosagent@yandex.ru
+                    <i>Доступ к сервису проверок</i>
+                    https://reestro.kontur.ru/
+                    domosagent@yandex.ru
 
-Пароль - <code>Domos1234</code>"""
+                    Пароль - <code>Domos1234</code>"""
                 await cb.message.edit_text(msg, reply_markup=helpfulbackbtnmk)
         else:
             await cb.answer("⭕ Сначала оплатите подписку!", show_alert=True)
@@ -696,11 +696,11 @@ async def companyHistory_inline(cb: CallbackQuery):
         if username == None:
             await cb.message.edit_text(
                 """
-    Для корректной работы необходимо в настройках изменить имя пользователя!
-    Как это сделать:
-    Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
-    После изменения @username войдите в бот по ссылке еще раз и нажмите /start
-    """
+                Для корректной работы необходимо в настройках изменить имя пользователя!
+                Как это сделать:
+                Настройки - Изм. (Редактирование пользователя) - Имя пользователя.
+                После изменения @username войдите в бот по ссылке еще раз и нажмите /start
+                """
             )
         else:
 

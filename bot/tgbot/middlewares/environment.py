@@ -1,4 +1,6 @@
-from aiogram.dispatcher.middlewares import LifetimeControllerMiddleware
+from aiogram.dispatcher.middlewares import LifetimeControllerMiddleware, BaseMiddleware
+from aiogram import types
+from aiogram.dispatcher.handler import CancelHandler
 
 
 class EnvironmentMiddleware(LifetimeControllerMiddleware):
@@ -10,3 +12,9 @@ class EnvironmentMiddleware(LifetimeControllerMiddleware):
     
     async def pre_process(self, obj, data, *args):
         data.update(**self.kwargs)
+
+
+class PrivateOnlyMiddleware(BaseMiddleware):
+    async def on_pre_process_message(self, message: types.Message, data: dict):
+        if message.chat.type != types.ChatType.PRIVATE:
+            raise CancelHandler()
