@@ -35,22 +35,7 @@ from .admin_dashboard import (
 )
 from .new_sections import (
     assistant_view,
-    services_view,
-    subscriptions_view,
-    my_requests_view,
-    admin_dashboard_view,
-)
-
-from .new_sections import (
-    assistant_view,
-    services_view,
-    subscriptions_view,
-    my_requests_view,
-    admin_dashboard_view,
-)
-
-from .new_sections import (
-    assistant_view,
+    assistant_chat_api,
     services_view,
     subscriptions_view,
     my_requests_view,

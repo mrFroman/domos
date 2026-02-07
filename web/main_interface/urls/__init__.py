@@ -1,10 +1,11 @@
 from django.urls import path, include
 
-from ..views import main_menu, assistant_view, services_view, subscriptions_view, my_requests_view, admin_dashboard_view
+from ..views import main_menu, assistant_view, assistant_chat_api, services_view, subscriptions_view, my_requests_view, admin_dashboard_view
 
 urlpatterns = [
     path("", main_menu, name="main_menu"),
     path("assistant/", assistant_view, name="assistant"),
+    path("assistant/chat/", assistant_chat_api, name="assistant_chat_api"),
     path("services/", services_view, name="services"),
     path("subscriptions/", subscriptions_view, name="subscriptions"),
     path("my-requests/", my_requests_view, name="my_requests"),

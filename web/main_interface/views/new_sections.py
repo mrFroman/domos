@@ -1,13 +1,18 @@
 import sys
 import os
+import asyncio
+import json
 
 sys.path.append(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 )
 
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
 
-from bot.tgbot.databases.pay_db import get_user_by_user_id, getUserPay, changeUserAdmin
+from bot.tgbot.databases.pay_db import get_user_by_user_id, getUserPay, getBannedUserId, changeUserAdmin
 
 
 def _extract_user_id(request_user: str) -> int | None:
@@ -62,6 +67,45 @@ def assistant_view(request):
         "is_admin": _is_admin(telegram_id),
     }
     return render(request, "main_interface/assistant.html", context)
+
+
+@require_POST
+@csrf_exempt
+def assistant_chat_api(request):
+    """
+    API для чата с AI-помощником (та же логика, что в боте).
+    POST JSON: {"message": "текст запроса"} -> {"answer": "ответ ИИ"} или {"error": "..."}
+    """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Необходима авторизация"}, status=401)
+
+    request_user = str(request.user)
+    telegram_id = _extract_user_id(request_user)
+    if telegram_id is None:
+        return JsonResponse({"error": "Пользователь не найден"}, status=401)
+
+    if getBannedUserId(telegram_id) != 0:
+        return JsonResponse({"error": "Ваш аккаунт заблокирован."}, status=403)
+
+    if getUserPay(telegram_id) != 1:
+        return JsonResponse({"error": "Сначала оплатите подписку!"}, status=403)
+
+    try:
+        body = json.loads(request.body or "{}")
+        message = (body.get("message") or "").strip()
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Неверный формат запроса"}, status=400)
+
+    if not message:
+        return JsonResponse({"error": "Сообщение не может быть пустым"}, status=400)
+
+    try:
+        from bot.tgbot.handlers.yandex_gpt_handler import run_chat_with_tools
+        answer = asyncio.run(run_chat_with_tools(user_id=telegram_id, user_msg=message))
+    except Exception as e:
+        return JsonResponse({"error": f"Ошибка при обработке запроса: {e}"}, status=500)
+
+    return JsonResponse({"answer": answer or "Извините, не удалось получить ответ."})
 
 
 def services_view(request):

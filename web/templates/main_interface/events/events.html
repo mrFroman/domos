@@ -6,14 +6,14 @@
 {% block content %}
 <div class="main-menu">
 
-    <div class="menu-header">
-        <span class="menu-title" style="margin-left: 100px;">{{ page_title }}</span>
+    <div class="menu-header" style="text-align: center;">
+        <span class="menu-title">{{ page_title }}</span>
         {% for event in events %}
             <div class="menu-row single">
                 <a href="{% url 'event_detail' event.id %}" class="menu-btn back full">{{ event.display_text }}</a>
             </div>
         {% empty %}
-            <span class="row-text" style="margin-left: 70px;">Нет предстоящих мероприятий</span>
+            <span class="row-text" style="display: block; text-align: center;">Нет предстоящих мероприятий</span>
         {% endfor %}
     </div>
     
