@@ -155,5 +155,5 @@ CSRF_COOKIE_HTTPONLY = False  # Для локальной разработки
 CSRF_USE_SESSIONS = False
 CSRF_COOKIE_SECURE = False  # Для HTTP (локальная разработка)
 
-# FORCE_SCRIPT_NAME = '/domosclub'  # Отключено для локальной разработки
+FORCE_SCRIPT_NAME = '/domosclub'  # Отключено для локальной разработки
 CSRF_TRUSTED_ORIGINS = ["https://neurochief.pro", "https://www.neurochief.pro"]

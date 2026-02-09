@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from django.db import models
 from django.utils import timezone
 import uuid
@@ -53,18 +54,41 @@ class TelegramToken(models.Model):
             self.status = "expired"
             self.save(update_fields=["status"])
 
+    # def is_expired(self):
+    #     """Проверить, истек ли токен"""
+    #     if self.status in ["used", "expired"]:
+    #         return True
+    #     # Обработанные токены не истекают по времени - они должны быть использованы
+    #     if self.status == "processed":
+    #         return False
+
+    #     # Токен истекает через EXPIRATION_MINUTES минут после создания
+    #     from datetime import timedelta
+
+    #     expiration_time = self.created_at + timedelta(minutes=self.EXPIRATION_MINUTES)
+    #     return timezone.now() > expiration_time
+    
     def is_expired(self):
         """Проверить, истек ли токен"""
         if self.status in ["used", "expired"]:
             return True
-        # Обработанные токены не истекают по времени - они должны быть использованы
+        # Обработанные токены не истекают по времени
         if self.status == "processed":
             return False
 
-        # Токен истекает через EXPIRATION_MINUTES минут после создания
-        from datetime import timedelta
+        # Преобразуем created_at в datetime, если это строка
+        if isinstance(self.created_at, str):
+            try:
+                # Попытка парсинга ISO формата
+                created_at_dt = datetime.fromisoformat(self.created_at)
+            except ValueError:
+                # Если другой формат, например "YYYY-MM-DD HH:MM:SS"
+                created_at_dt = datetime.strptime(self.created_at, "%Y-%m-%d %H:%M:%S")
+        else:
+            created_at_dt = self.created_at
 
-        expiration_time = self.created_at + timedelta(minutes=self.EXPIRATION_MINUTES)
+        expiration_time = created_at_dt + timedelta(minutes=self.EXPIRATION_MINUTES)
+
         return timezone.now() > expiration_time
 
     @classmethod
