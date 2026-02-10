@@ -681,7 +681,7 @@ def checkUserExistsUsername(username):
     else:
         if isinstance(info, dict):
             user_id = info.get('user_id', 'empty')
-            pay_status = info.get('pay_status::int', 'empty')
+            pay_status = info.get('pay_status', 'empty')
             rank = info.get('rank', 'empty')
         else:
             user_id = info[0] if len(info) > 0 else 'empty'
