@@ -77,3 +77,6 @@ scripts/backups/
 
 # SQLite backups
 backups/sqlite/
+
+# Docker Compose
+docker-compose.yml
