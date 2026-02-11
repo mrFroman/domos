@@ -422,7 +422,7 @@ async def save_advert_data_api(request: Request):
         if DB_TYPE == "postgres":
             query = """
                 INSERT INTO tokens (token, user_id, data_json, signal, payment_status)
-                VALUES (%s, %s, %s, %s, 0)
+                VALUES (%s, %s, %s, %s, FALSE)
                 ON CONFLICT (token) DO UPDATE SET
                     user_id = EXCLUDED.user_id,
                     data_json = EXCLUDED.data_json,
@@ -434,13 +434,18 @@ async def save_advert_data_api(request: Request):
                 VALUES (?, ?, ?, ?, 0)
             """
         
+        signal = data.get("signal")
+
+        if DB_TYPE == "postgres":
+            signal = bool(signal) if signal is not None else None
+
         db.execute(
             query,
             (
                 data.get("token"),
                 data.get("user_id"),
                 json.dumps(data),
-                data.get("signal"),
+                signal
             ),
         )
 
@@ -906,9 +911,14 @@ async def tinkoff_recurrent_payment_webhook(request: Request):
     db = DatabaseConnection(MAIN_DB_PATH, schema="main")
 
     # Проверяем существование платежа
+    # row = db.fetchone(
+    #     "SELECT * FROM rec_payments WHERE payment_id_last = %s OR id = %s",
+    #     (str(payment_id), str(payment_id)),
+    # )
+
     row = db.fetchone(
-        "SELECT * FROM rec_payments WHERE payment_id_last = %s OR id = %s",
-        (str(payment_id), str(payment_id)),
+        "SELECT * FROM rec_payments WHERE payment_id_last = %s",
+        (str(payment_id),),
     )
 
     if not row:
